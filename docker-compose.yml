@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+  sony-sonpo-infra:
+    container_name: sony-sonpo-infra
+    build:
+      context: .
+    tty: true
+    volumes:
+      - ./:/code
+      - ~/.aws/:/root/.aws/
