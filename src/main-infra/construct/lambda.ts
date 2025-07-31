@@ -1,6 +1,6 @@
 import { Construct } from "constructs";
 import { Function, FunctionProps } from "aws-cdk-lib/aws-lambda";
-import { EcrConstruct } from "./ecr";
+import { Architecture } from "aws-cdk-lib/aws-lambda";
 import { IRepository } from "aws-cdk-lib/aws-ecr";
 import { Code } from "aws-cdk-lib/aws-lambda";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
@@ -26,6 +26,7 @@ export class LambdaImageConstruct extends Construct {
             functionName: props.functionName,
             runtime: Runtime.FROM_IMAGE,
             handler: Handler.FROM_IMAGE,
+            architecture: Architecture.ARM_64,
           });
     }
 }
