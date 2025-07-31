@@ -5,6 +5,7 @@ import { IRepository } from "aws-cdk-lib/aws-ecr";
 import { Code } from "aws-cdk-lib/aws-lambda";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import { Handler } from "aws-cdk-lib/aws-lambda";
+import { LAMBDA_HANDLER } from "../../shared/enviroment/common";
 
 export interface LambdaProps {
     functionName: string;
@@ -20,8 +21,8 @@ export class LambdaImageConstruct extends Construct {
 
         const sampleLambda = new Function(this, "advanced-rag-lambda", {
             code: Code.fromEcrImage(props.repository, {
-              cmd: ["app.handler"],
-              tag: props.imageTag,
+              cmd: [LAMBDA_HANDLER],
+              tagOrDigest: props.imageTag,  // 修正: tag → tagOrDigest
             }),
             functionName: props.functionName,
             runtime: Runtime.FROM_IMAGE,
