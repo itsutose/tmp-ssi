@@ -191,9 +191,9 @@ Accept: application/json
 
 ### 4.3 コンプライアンスチェック系API
 
-#### 4.3.1 手動評価チェック処理
+#### 4.3.1 チェック処理
 - **エンドポイント**: `POST /check`
-- **概要**: 指定されたチェックタイプに応じて、文書の問題点を検出し、ユーザーが手動で評価する結果を返す
+- **概要**: 指定されたチェックタイプに応じて、文書の問題点を検出する
 - **認証**: 認証要
 - **処理方式**: 同期処理（即座にチェック結果を返す）
 - **リクエストパラメータ**:
@@ -201,14 +201,13 @@ Accept: application/json
 {
   "check_type": "compliance", // "compliance", "term", "expression"
   "document": "文書内容",
-  "prompt": "使用プロンプト",
-  "evaluation_mode": "manual" // 手動評価モード（固定値）
+  "prompt": "使用プロンプト"
 }
 ```
 - **チェックタイプ詳細**:
-  - `compliance`: 法務上の違反内容チェック（問題点の指摘のみ）
-  - `term`: 約款との矛盾チェック（矛盾箇所の指摘のみ）
-  - `expression`: 表記ルール違反チェック（違反箇所の指摘のみ）
+  - `compliance`: 法務上の違反内容チェック
+  - `term`: 約款との矛盾チェック
+  - `expression`: 表記ルール違反チェック
 - **レスポンス**:
 ```json
 {
@@ -243,77 +242,7 @@ Accept: application/json
 }
 ```
 
-#### 4.3.2 ユーザー評価記録
-- **エンドポイント**: `POST /check/evaluate`
-- **概要**: ユーザーがチェック結果を評価し、フィードバックを記録する
-- **認証**: 認証要
-- **使用データストア**: DynamoDB ProcessingHistory テーブル（ユーザー評価履歴保存）
-- **リクエストパラメータ**:
-```json
-{
-  "check_id": "check-123e4567-e89b-12d3-a456-426614174000",
-  "user_rating": "good", // "good", "poor", "needs_improvement"
-  "feedback": "指摘内容は適切だが、参照文書が古い可能性がある",
-  "action_taken": "accepted", // "accepted", "rejected", "modified"
-  "improvements": {
-    "prompt_adjustment": "プロンプトを調整して最新の法規制を参照するよう修正",
-    "document_update": "参照文書を2024年版に更新"
-  }
-}
-```
-- **レスポンス**:
-```json
-{
-  "success": true,
-  "evaluation_id": "eval-456b7890-c12d-34e5-f678-901234567890",
-  "check_id": "check-123e4567-e89b-12d3-a456-426614174000",
-  "timestamp": "2024-01-01T10:30:00Z",
-  "message": "評価が記録されました"
-}
-```
 
-#### 4.3.3 評価履歴取得
-- **エンドポイント**: `GET /check/evaluations`
-- **概要**: ユーザーの評価履歴を取得し、改善点の分析に活用
-- **認証**: 認証要
-- **リクエストパラメータ**:
-```json
-{
-  "check_type": "compliance", // オプション：特定のチェックタイプ
-  "rating_filter": "poor", // オプション：特定の評価のみ
-  "date_from": "2024-01-01",
-  "date_to": "2024-01-31",
-  "page": 1,
-  "limit": 20
-}
-```
-- **レスポンス**:
-```json
-{
-  "evaluations": [
-    {
-      "evaluation_id": "eval-456b7890-c12d-34e5-f678-901234567890",
-      "check_id": "check-123e4567-e89b-12d3-a456-426614174000",
-      "check_type": "compliance",
-      "user_rating": "good",
-      "feedback": "指摘内容は適切",
-      "timestamp": "2024-01-01T10:30:00Z",
-      "processing_time_ms": 2500
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 150,
-    "total_pages": 8
-  },
-  "analytics": {
-    "average_rating": "good",
-    "improvement_rate": 0.85,
-    "common_feedback_themes": ["参照文書の更新", "プロンプト精度向上"]
-  }
-}
-```
 
 ### 4.4 文書管理系API
 
@@ -429,27 +358,7 @@ Accept: application/json
 
 ### 4.5 サンドボックス環境管理API
 
-#### 4.5.1 フォルダ名変更
-- **エンドポイント**: `PUT /sandbox/folders/{folder_id}`
-- **概要**: 参照フォルダの名前を変更
-- **認証**: 認証要
-- **リクエストパラメータ**:
-```json
-{
-  "new_name": "新しいフォルダ名"
-}
-```
-- **レスポンス**:
-```json
-{
-  "success": true,
-  "folder_id": "folder123",
-  "old_name": "古いフォルダ名",
-  "new_name": "新しいフォルダ名"
-}
-```
-
-#### 4.5.2 プロンプト一覧取得
+#### 4.5.1 プロンプト一覧取得
 - **エンドポイント**: `GET /sandbox/prompts`
 - **概要**: 利用可能なプロンプトの一覧を取得
 - **認証**: 認証要
@@ -471,7 +380,7 @@ Accept: application/json
 }
 ```
 
-#### 4.5.3 プロンプト取得
+#### 4.5.2 プロンプト取得
 - **エンドポイント**: `GET /sandbox/prompts/{prompt_id}`
 - **概要**: 指定されたプロンプトの内容を取得
 - **認証**: 認証要
@@ -490,20 +399,19 @@ Accept: application/json
 }
 ```
 
-#### 4.5.4 プロンプト作成・更新
+#### 4.5.3 プロンプト作成・更新
 - **エンドポイント**: `POST /sandbox/prompts` (新規作成)
 - **エンドポイント**: `PUT /sandbox/prompts/{prompt_id}` (更新)
 - **概要**: プロンプトの作成または更新
 - **認証**: 認証要
-- **使用データストア**: DynamoDB Prompts テーブル（新規バージョン作成、既存バージョンの非アクティブ化）
+- **使用データストア**: DynamoDB Prompts テーブル
 - **リクエストパラメータ**:
 ```json
 {
-  "key": "new_prompt",
-  "title": "新しいプロンプト",
+  "title": "プロンプト名",
   "content": "プロンプトの内容...",
   "description": "プロンプトの説明",
-  "variables": ["document", "context"]
+  "category": "compliance"
 }
 ```
 - **レスポンス**:
@@ -515,227 +423,7 @@ Accept: application/json
 }
 ```
 
-#### 4.5.5 Sandbox結果保存
-- **エンドポイント**: `POST /sandbox/results/save`
-- **概要**: Sandbox RAG処理結果を動的フォルダに保存（自動実行）
-- **認証**: 認証要
-- **使用データストア**: S3 Sandbox バケット、DynamoDB ProcessingHistory テーブル
-- **リクエストパラメータ**:
-```json
-{
-  "workspace_id": "workspace-123",
-  "result_type": "search", // "search", "check", "compare"
-  "result_data": {
-    "query": "検索クエリまたはチェック対象文書",
-    "check_type": "compliance", // チェック系の場合
-    "results": {
-      "search_results": [...], // 検索結果
-      "check_points": [...], // チェック結果
-      "user_evaluation": "good" // ユーザー評価（あれば）
-    },
-    "timestamp": "2024-01-01T10:00:00Z",
-    "processing_time_ms": 2500
-  },
-  "save_options": {
-    "save_to_s3": true,
-    "save_to_dynamodb": true,
-    "retention_days": 30
-  }
-}
-```
-- **レスポンス**:
-```json
-{
-  "success": true,
-  "result_id": "result-789c0123-d45e-67f8-9012-345678901234",
-  "s3_location": "workspaces/workspace-123/results/2024-01-01/search_result_20240101T100000Z.json",
-  "dynamodb_record_id": "history-456d7890-e12f-34g5-h678-901234567890",
-  "expires_at": "2024-01-31T10:00:00Z"
-}
-```
 
-#### 4.5.6 Sandbox結果取得
-- **エンドポイント**: `GET /sandbox/results`
-- **概要**: ワークスペース内の処理結果履歴を取得
-- **認証**: 認証要
-- **リクエストパラメータ**:
-```json
-{
-  "workspace_id": "workspace-123",
-  "result_type": "search", // オプション: "search", "check", "compare"
-  "date_from": "2024-01-01",
-  "date_to": "2024-01-31",
-  "page": 1,
-  "limit": 20
-}
-```
-- **レスポンス**:
-```json
-{
-  "results": [
-    {
-      "result_id": "result-789c0123",
-      "result_type": "search",
-      "query": "保険約款について",
-      "timestamp": "2024-01-01T10:00:00Z",
-      "processing_time_ms": 2500,
-      "user_evaluation": "good",
-      "s3_location": "workspaces/workspace-123/results/2024-01-01/search_result_20240101T100000Z.json",
-      "preview": "検索結果の最初の100文字..."
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 45,
-    "total_pages": 3
-  }
-}
-```
-
-#### 4.5.7 Sandbox結果詳細取得
-- **エンドポイント**: `GET /sandbox/results/{result_id}`
-- **概要**: 特定の処理結果の詳細を取得
-- **認証**: 認証要
-- **レスポンス**:
-```json
-{
-  "result_id": "result-789c0123",
-  "workspace_id": "workspace-123",
-  "result_type": "search",
-  "full_results": {
-    "query": "保険約款について",
-    "search_results": [
-      {
-        "document_id": "doc123",
-        "title": "生命保険約款",
-        "content": "関連する文書内容...",
-        "score": 0.95
-      }
-    ],
-    "metadata": {
-      "strategy_used": "hybrid",
-      "total_documents_searched": 150
-    }
-  },
-  "created_at": "2024-01-01T10:00:00Z",
-  "expires_at": "2024-01-31T10:00:00Z"
-}
-```
-
-#### 4.5.8 Sandbox結果削除
-- **エンドポイント**: `DELETE /sandbox/results/{result_id}`
-- **概要**: 特定の処理結果を削除
-- **認証**: 認証要
-- **レスポンス**:
-```json
-{
-  "success": true,
-  "result_id": "result-789c0123",
-  "message": "結果が正常に削除されました",
-  "cleanup": {
-    "s3_deleted": true,
-    "dynamodb_deleted": true
-  }
-}
-```
-
-#### 4.5.9 ワークスペース活動サマリー
-- **エンドポイント**: `GET /sandbox/workspaces/{workspace_id}/summary`
-- **概要**: ワークスペースの活動統計とサマリー
-- **認証**: 認証要
-- **レスポンス**:
-```json
-{
-  "workspace_id": "workspace-123",
-  "summary": {
-    "total_searches": 25,
-    "total_checks": 15,
-    "total_comparisons": 5,
-    "last_activity": "2024-01-01T10:00:00Z",
-    "storage_usage": {
-      "results_count": 45,
-      "total_size_mb": 12.5
-    },
-    "evaluation_stats": {
-      "good_ratings": 30,
-      "poor_ratings": 5,
-      "needs_improvement": 10,
-      "average_rating": "good"
-    }
-  },
-  "recent_activity": [
-    {
-      "result_id": "result-789c0123",
-      "type": "search",
-      "timestamp": "2024-01-01T10:00:00Z",
-      "user_evaluation": "good"
-    }
-  ]
-}
-```
-
-#### 4.5.10 Sandbox結果保存フロー
-
-```mermaid
-sequenceDiagram
-    participant User as ユーザー
-    participant Frontend as フロントエンド
-    participant API as API Gateway
-    participant Lambda as Sandbox Lambda
-    participant S3_Sandbox as S3 Sandbox
-    participant DynamoDB as DynamoDB
-
-    Note over User, DynamoDB: Sandbox結果自動保存フロー
-
-    User->>Frontend: RAG処理実行
-    Frontend->>API: POST /sandbox/search
-    API->>Lambda: 処理実行
-    
-    Lambda->>Lambda: RAG処理完了
-    
-    Note over Lambda: 結果保存処理開始
-    
-    Lambda->>API: POST /sandbox/results/save (内部呼び出し)
-    
-    par S3への保存
-        Lambda->>S3_Sandbox: 結果JSON保存
-        Note over S3_Sandbox: workspaces/id/results/<br/>date/type_timestamp.json
-    and DynamoDBへの保存
-        Lambda->>DynamoDB: 履歴メタデータ保存
-        Note over DynamoDB: ProcessingHistory テーブル<br/>sandbox専用レコード
-    end
-    
-    Lambda-->>API: 保存完了 + 処理結果
-    API-->>Frontend: 結果 + 保存情報
-    Frontend-->>User: 処理結果表示
-
-    Note over User, DynamoDB: 履歴取得フロー
-    
-    User->>Frontend: 履歴確認要求
-    Frontend->>API: GET /sandbox/results
-    API->>Lambda: 履歴取得処理
-    
-    Lambda->>DynamoDB: メタデータ検索
-    Lambda->>S3_Sandbox: プレビュー情報取得
-    
-    Lambda-->>API: 履歴一覧
-    API-->>Frontend: 履歴データ
-    Frontend-->>User: 履歴表示
-    
-    Note over User, DynamoDB: 詳細結果取得フロー
-    
-    User->>Frontend: 特定結果の詳細要求
-    Frontend->>API: GET /sandbox/results/{result_id}
-    API->>Lambda: 詳細取得処理
-    
-    Lambda->>S3_Sandbox: 完全結果ファイル取得
-    Lambda->>DynamoDB: メタデータ取得
-    
-    Lambda-->>API: 詳細結果
-    API-->>Frontend: 完全データ
-    Frontend-->>User: 詳細表示
-```
 
 ### 4.6 履歴管理API
 
@@ -775,9 +463,9 @@ sequenceDiagram
 
 #### 4.6.2 チェック履歴取得
 - **エンドポイント**: `GET /history/checks`
-- **概要**: コンプライアンスチェック等の処理履歴を取得
+- **概要**: チェック処理の履歴を取得
 - **認証**: 認証要
-- **使用データストア**: DynamoDB ProcessingHistory テーブル（GSI: userId-createdAt-index, queryType-createdAt-index使用）
+- **使用データストア**: DynamoDB ProcessingHistory テーブル
 - **リクエストパラメータ**:
 ```json
 {
@@ -795,8 +483,7 @@ sequenceDiagram
     {
       "check_id": "check123",
       "check_type": "compliance",
-      "executionARN": "arn:aws:states:...",
-      "status": "SUCCEEDED",
+      "status": "COMPLETED",
       "timestamp": "2024-01-01T00:00:00Z",
       "document_preview": "文書の最初の100文字...",
       "issues_found": 3
@@ -830,18 +517,17 @@ curl -X POST "https://[ベースURL]/search" \
     "use_reranking": true
   }'
 
-# 手動評価チェック例（コンプライアンス）
+# チェック処理例（コンプライアンス）
 curl -X POST "https://[ベースURL]/check" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer [JWT_TOKEN]" \
   -d '{
     "check_type": "compliance",
     "document": "保険商品の販売において、リスクの説明を省略します。",
-    "prompt": "金融法務チェック用プロンプト",
-    "evaluation_mode": "manual"
+    "prompt": "金融法務チェック用プロンプト"
   }'
 
-# レスポンス例（チェック結果のみ、修正案なし）
+# レスポンス例
 {
   "check_id": "check-123e4567",
   "status": "COMPLETED",
@@ -862,28 +548,6 @@ curl -X POST "https://[ベースURL]/check" \
     }
   }
 }
-
-# ユーザー評価の記録例
-curl -X POST "https://[ベースURL]/check/evaluate" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer [JWT_TOKEN]" \
-  -d '{
-    "check_id": "check-123e4567",
-    "user_rating": "good",
-    "feedback": "適切な指摘内容です",
-    "action_taken": "accepted"
-  }'
-
-# 評価履歴取得例
-curl -X GET "https://[ベースURL]/check/evaluations" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer [JWT_TOKEN]" \
-  -d '{
-    "check_type": "compliance",
-    "rating_filter": "poor",
-    "page": 1,
-    "limit": 10
-  }'
 ```
 
 ### 5.2 エラーハンドリング例
