@@ -204,7 +204,7 @@ graph TB
         DOC --> SRAG[Sandbox RAG処理]
         PROMPT --> SRAG
         SRAG --> RESULT[処理結果]
-        RESULT --> EVAL{評価}
+        RESULT --> EVAL{"評価"}
         EVAL -->|改善必要| DOC
         EVAL -->|改善必要| PROMPT
         EVAL -->|OK| PROMOTE[本番反映]
@@ -312,7 +312,7 @@ graph TB
         B --> C[チェック実行<br/>POST /check]
         C --> D[チェック結果表示<br/>問題点の指摘のみ]
         D --> E[ユーザー評価<br/>POST /check/evaluate]
-        E --> F{評価結果}
+        E --> F{"評価結果"}
         F -->|good| G[✅ 採用・保存]
         F -->|poor| H[❌ 改善が必要]
         F -->|needs_improvement| I[🔧 部分的改善]
@@ -371,21 +371,21 @@ Sandbox環境での処理結果を動的フォルダに保存し、ユーザー�
 ```mermaid
 graph TB
     subgraph "📁 S3 Sandbox結果保存"
-        A[RAG処理完了] --> B[結果データ生成]
-        B --> C{保存場所決定}
-        C --> D[workspaces/{id}/results/]
-        D --> E[日付別フォルダ<br/>{YYYY-MM-DD}/]
-        E --> F[タイプ別ファイル<br/>{type}_{timestamp}.json]
+        A["RAG処理完了"] --> B["結果データ生成"]
+        B --> C{"保存場所決定"}
+        C --> D["workspaces/workspace-id/results/"]
+        D --> E["日付別フォルダ<br/>YYYY-MM-DD/"]
+        E --> F["タイプ別ファイル<br/>type_timestamp.json"]
         
-        F --> G[search_20240101T100000Z.json]
-        F --> H[check_20240101T103000Z.json]
-        F --> I[compare_20240101T110000Z.json]
+        F --> G["search_20240101T100000Z.json"]
+        F --> H["check_20240101T103000Z.json"]
+        F --> I["compare_20240101T110000Z.json"]
     end
     
     subgraph "🗄️ DynamoDB履歴インデックス"
-        J[ProcessingHistory] --> K[結果メタデータ]
-        K --> L[検索・フィルタ機能]
-        L --> M[高速取得]
+        J["ProcessingHistory"] --> K["結果メタデータ"]
+        K --> L["検索・フィルタ機能"]
+        L --> M["高速取得"]
     end
     
     A --> J
@@ -443,7 +443,7 @@ graph LR
     subgraph "🔍 履歴検索フロー"
         A[履歴取得要求] --> B[DynamoDB検索]
         B --> C[メタデータ一覧]
-        C --> D{詳細必要?}
+        C --> D{"詳細必要?"}
         D -->|No| E[プレビュー表示]
         D -->|Yes| F[S3詳細取得]
         F --> G[完全結果表示]
@@ -672,6 +672,8 @@ graph TB
 
 ### 6.2 AWS アーキテクチャ構成図
 
+FastAPI基本機能の処理フロー: **API Gateway → Step Functions → Lambda**
+
 ```mermaid
 graph TB
     subgraph "Frontend"
@@ -731,11 +733,11 @@ graph TB
     %% API Flow
     FE -->|HTTPS Requests| APIGW
     APIGW -->|Authorize| AUTH
-    AUTH -->|Execute| LAMBDA
+    AUTH -->|Execute| SF
     
-    %% Lambda Dependencies
+    %% Step Functions to Lambda
+    SF -->|Invoke| LAMBDA
     ECR -->|Container Images| LAMBDA
-    LAMBDA -->|Orchestrate| SF
     
     %% Data Storage
     LAMBDA -->|Store/Retrieve| S3_DOC
@@ -751,10 +753,8 @@ graph TB
     LAMBDA -->|Sessions| DDB_SESSIONS
     
     %% AI/ML Integration
-    SF -->|LLM Requests| BEDROCK
-    SF -->|Vector Search| PINECONE
-    LAMBDA -->|Direct Calls| BEDROCK
-    LAMBDA -->|Vector Ops| PINECONE
+    LAMBDA -->|LLM Requests| BEDROCK
+    LAMBDA -->|Vector Operations| PINECONE
     
     %% Security
     LAMBDA -->|API Keys| SECRETS
@@ -796,14 +796,14 @@ sequenceDiagram
     participant Frontend as フロントエンド
     participant APIGW as API Gateway
     participant Auth as Cognito Authorizer
-    participant Lambda as Lambda Function
     participant SF as Step Functions
+    participant Lambda as Lambda Function
     participant S3 as S3 Storage
     participant DDB as DynamoDB
     participant Bedrock as Amazon Bedrock
     participant Pinecone as Pinecone VectorDB
     
-    Note over User, Pinecone: Advanced RAG処理フロー
+    Note over User, Pinecone: Advanced RAG処理フロー (API Gateway → Step Functions → Lambda)
     
     %% Authentication
     User->>Frontend: RAG処理要求
@@ -811,12 +811,13 @@ sequenceDiagram
     APIGW->>Auth: トークン検証
     Auth-->>APIGW: 認証OK
     
-    %% Lambda Processing
-    APIGW->>Lambda: リクエスト転送
-    Lambda->>DDB: クエリ履歴保存
+    %% Step Functions Processing
+    APIGW->>SF: Step Function実行開始
+    SF->>DDB: 処理開始ログ記録
     
     %% Document Search Flow
     alt 文書検索の場合
+        SF->>Lambda: 検索Lambda呼び出し
         Lambda->>Bedrock: Embedding生成
         Bedrock-->>Lambda: クエリベクトル
         Lambda->>Pinecone: ベクトル検索実行
@@ -825,34 +826,38 @@ sequenceDiagram
         Lambda->>S3: 文書内容取得
         Lambda->>Bedrock: RAG回答生成
         Bedrock-->>Lambda: 最終回答
-        Lambda-->>APIGW: 検索結果
+        Lambda->>DDB: 処理結果保存
+        Lambda-->>SF: 検索結果
+        SF-->>APIGW: 検索結果レスポンス
     
     %% Check Processing Flow    
     else チェック処理の場合
-        Lambda->>SF: Step Function開始
-        Note over SF: チェック処理ワークフロー
-        SF->>Bedrock: 文書解析
-        SF->>Pinecone: 関連法規検索
-        SF->>S3: 参照文書取得
-        SF->>Bedrock: コンプライアンス判定
-        SF->>DDB: 処理結果保存
-        SF-->>Lambda: 処理完了通知
-        Lambda-->>APIGW: チェック結果
+        SF->>Lambda: チェックLambda呼び出し
+        Lambda->>Bedrock: 文書解析
+        Lambda->>Pinecone: 関連法規検索
+        Lambda->>S3: 参照文書取得
+        Lambda->>Bedrock: コンプライアンス判定
+        Lambda->>DDB: 処理結果保存
+        Lambda-->>SF: チェック結果
+        SF-->>APIGW: チェック結果レスポンス
     
     %% File Upload Flow
     else ファイルアップロードの場合
+        SF->>Lambda: アップロードLambda呼び出し
         Lambda->>S3: 一時アップロード
         Lambda->>DDB: メタデータ登録
+        Lambda-->>SF: アップロード完了
         Note over S3: S3イベントトリガー
-        S3->>Lambda: オブジェクト作成イベント
-        Lambda->>SF: 文書処理開始
-        SF->>Lambda: テキスト抽出
-        SF->>Bedrock: チャンキング処理
-        SF->>Bedrock: Embedding生成
-        SF->>Pinecone: ベクトル登録
-        SF->>S3: 最終保存先に移動
-        SF->>DDB: ステータス更新
-        SF-->>Lambda: 処理完了
+        S3->>SF: 文書処理Step Function開始
+        SF->>Lambda: 文書処理Lambda呼び出し
+        Lambda->>Lambda: テキスト抽出
+        Lambda->>Bedrock: チャンキング処理
+        Lambda->>Bedrock: Embedding生成
+        Lambda->>Pinecone: ベクトル登録
+        Lambda->>S3: 最終保存先に移動
+        Lambda->>DDB: ステータス更新
+        Lambda-->>SF: 処理完了
+        SF-->>APIGW: 処理完了レスポンス
     end
     
     %% Response
@@ -860,8 +865,8 @@ sequenceDiagram
     Frontend-->>User: 結果表示
     
     %% Monitoring
-    Lambda->>DDB: アクセス履歴記録
-    SF->>DDB: 処理履歴保存
+    SF->>DDB: ワークフロー履歴保存
+    Lambda->>DDB: 処理ログ記録
 ```
 
 ### 6.4 データフロー図

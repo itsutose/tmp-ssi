@@ -700,7 +700,7 @@ sequenceDiagram
     
     par S3への保存
         Lambda->>S3_Sandbox: 結果JSON保存
-        Note over S3_Sandbox: workspaces/{id}/results/<br/>{date}/{type}_{timestamp}.json
+        Note over S3_Sandbox: workspaces/id/results/<br/>date/type_timestamp.json
     and DynamoDBへの保存
         Lambda->>DynamoDB: 履歴メタデータ保存
         Note over DynamoDB: ProcessingHistory テーブル<br/>sandbox専用レコード
@@ -979,8 +979,8 @@ async function callAPI(endpoint, data) {
 
 | バージョン | 日付 | 変更内容 | 担当者 |
 |:---|:---|:---|:---|
-| v1.0 | 2025/01/25 | 初期API設計書作成 | 沓名 |
-| v1.1 | 2025/01/25 | system-difinition.mdに基づく全面改訂 | 沓名 |
-| v1.2 | 2025/01/25 | コンプライアンスチェック系APIを統合エンドポイント（POST /check）に変更 | 沓名 |
-| v1.3 | 2025/01/25 | 文書アップロード処理フローにS3イベントトリガーによるLambda自動実行を明記 | 沓名 |
-| v1.4 | 2025/01/25 | table_difinition.mdに基づきDynamoDBテーブル使用箇所を詳細化 | 沓名 |
+| v1.0 | 2025/08/04 | 初期API設計書作成 | 沓名 |
+| v1.1 | 2025/08/04 | system-difinition.mdに基づく全面改訂 | 沓名 |
+| v1.2 | 2025/08/04 | コンプライアンスチェック系APIを統合エンドポイント（POST /check）に変更 | 沓名 |
+| v1.3 | 2025/08/04 | 文書アップロード処理フローにS3イベントトリガーによるLambda自動実行を明記 | 沓名 |
+| v1.4 | 2025/08/04 | table_difinition.mdに基づきDynamoDBテーブル使用箇所を詳細化 | 沓名 |

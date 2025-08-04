@@ -170,7 +170,7 @@ graph TB
         B --> D[Sandbox RAG呼び出し]
         C --> D
         D --> E[結果確認・調整]
-        E --> F{満足？}
+        E --> F{"満足？"}
         F -->|No| B
         F -->|No| C
         F -->|Yes| G[本番環境に反映]
@@ -250,7 +250,7 @@ sequenceDiagram
     
     Bedrock-->>Lambda: 回答生成
     Lambda->>S3_Sandbox: 結果保存
-    Note over S3_Sandbox: workspaces/{id}/results/
+    Note over S3_Sandbox: workspaces/id/results/
     
     Lambda-->>API: テスト結果
     API-->>Frontend: Sandbox結果表示
@@ -308,23 +308,23 @@ Sandbox環境での処理結果を効率的に保存・管理するためのS3�
 ```mermaid
 graph TB
     subgraph "📁 Sandbox結果フォルダ構造"
-        A[workspaces/] --> B[{workspaceId}/]
-        B --> C[results/]
-        C --> D[{YYYY-MM-DD}/]
-        D --> E[search_results/]
-        D --> F[check_results/]
-        D --> G[compare_results/]
+        A["workspaces/"] --> B["workspaceId/"]
+        B --> C["results/"]
+        C --> D["YYYY-MM-DD/"]
+        D --> E["search_results/"]
+        D --> F["check_results/"]
+        D --> G["compare_results/"]
         
-        E --> H[search_20240101T100000Z_result-123.json]
-        F --> I[check_20240101T103000Z_result-456.json]
-        G --> J[compare_20240101T110000Z_result-789.json]
+        E --> H["search_20240101T100000Z_result-123.json"]
+        F --> I["check_20240101T103000Z_result-456.json"]
+        G --> J["compare_20240101T110000Z_result-789.json"]
     end
     
     subgraph "🔄 自動保存フロー"
-        K[RAG処理完了] --> L[結果データ生成]
-        L --> M[S3キー生成]
-        M --> N[オブジェクト保存]
-        N --> O[メタデータ登録]
+        K["RAG処理完了"] --> L["結果データ生成"]
+        L --> M["S3キー生成"]
+        M --> N["オブジェクト保存"]
+        N --> O["メタデータ登録"]
     end
 ```
 
