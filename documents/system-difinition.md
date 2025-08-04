@@ -182,11 +182,31 @@ graph LR
 #### 3.4.1 主要APIエンドポイント
 
 - **ヘルスチェック系**: `/health`, `/rag/health`
-- **文書検索系**: `POST /search`
-- **チェック系**: `POST /check`
-- **文書管理系**: `POST /upload`, `GET /download`, `GET /documents`, `DELETE /documents/{id}`
+- **文書検索系**: `POST /search` ※Step Functions非同期処理
+- **チェック系**: `POST /check` ※Step Functions非同期処理
+- **文書管理系**: `POST /upload` ※Step Functions非同期処理, `GET /download`, `GET /documents`, `DELETE /documents/{id}`
+- **実行状態管理**: `GET /execution/{executionId}/status`, `GET /execution/{executionId}/result`
 - **サンドボックス管理**: `GET /sandbox/prompts`, `GET /sandbox/prompts/{id}`, `POST /sandbox/prompts`, `PUT /sandbox/prompts/{id}`
 - **履歴管理**: `GET /history/search`, `GET /history/checks`
+
+#### 3.4.2 Step Functions対応APIの動作
+
+**非同期処理API** (`POST /search`, `POST /check`, `POST /upload`)
+1. **即座レスポンス**: `{"executionId": "xxx", "status": "RUNNING"}`
+2. **ポーリング**: `GET /execution/{executionId}/status`
+3. **結果取得**: `GET /execution/{executionId}/result`（完了後）
+
+**ポーリングレスポンス例**:
+```json
+{
+  "executionId": "uuid-string",
+  "status": "RUNNING|SUCCEEDED|FAILED",
+  "startTime": "2024-01-01T00:00:00Z",
+  "endTime": "2024-01-01T00:01:30Z",
+  "result": { /* 完了時のみ */ },
+  "error": { /* エラー時のみ */ }
+}
+```
 
 ### 3.5 サンドボックス環境
 
@@ -240,14 +260,19 @@ graph TB
 ### 4.1 性能要件
 
 - **レスポンスタイム**
-  - 文書検索：15秒以内
-  - チェック機能：5秒以内（同期処理）
-  - ファイルアップロード：120秒以内
+  - **即座レスポンス**: API起動からexecutionId返却まで 3秒以内
+  - **非同期処理時間**:
+    - 文書検索：15秒以内
+    - チェック機能：10秒以内（Step Functions経由）
+    - ファイルアップロード：120秒以内
+  - **ポーリング間隔**: 1-5秒（推奨）
 
 - **制限事項**
   - ファイルサイズ：最大 10MB
   - API呼び出し制限：ユーザーあたり 1000 リクエスト/時間
   - Lambda同時実行数：1000 同時実行
+  - Step Functions同時実行数：100 同時実行
+  - ポーリング頻度制限：1リクエスト/秒（同一executionId）
 
 ### 4.2 セキュリティ要件
 
@@ -369,7 +394,7 @@ graph TB
 
 - **API Gateway**: RESTful APIエンドポイント
 - **Lambda**: サーバーレス実行環境
-- **Step Functions**: ワークフロー管理（チェック処理の状態管理）
+- **Step Functions**: ワークフロー管理（非同期処理・ポーリング機能）
 - **ECR**: Dockerイメージ管理
 - **DynamoDB**: NoSQLデータベース
 - **S3**: オブジェクトストレージ（4バケット構成）
@@ -381,9 +406,67 @@ graph TB
 - **Secrets Manager**: キー管理
 - **CloudWatch**: ログ管理・監視
 
+### 6.1.1 Step Functionsによる非同期処理アーキテクチャ
+
+FastAPIの時間がかかる処理（RAGによるサーチ、チェック、ファイルのアップロード）は、**Step Functionsを用いたポーリング方式**で実装されます。
+
+#### アーキテクチャフロー
+1. **API Gateway** → **Lambda（Step Functions起動）** → **Step Functions** → **プロキシLambda** → **FastAPI**
+
+#### 構成要素
+- **API Gateway**: フロントエンドからのAPIリクエストを受信
+- **Step Functions起動Lambda**: Step Functionsワークフローを開始し、実行IDをレスポンス
+- **Step Functions**: 非同期処理のワークフローを管理・実行
+- **プロキシLambda**: Step FunctionsとFastAPIの間でデータ整形・プロキシ処理
+- **FastAPI Lambda**: 実際のRAG処理、チェック処理、ファイル処理を実行
+
+#### ポーリング処理フロー
+```mermaid
+sequenceDiagram
+    participant Frontend as フロントエンド
+    participant APIGW as API Gateway
+    participant InvokeLambda as Step Functions起動Lambda
+    participant SF as Step Functions
+    participant ProxyLambda as プロキシLambda
+    participant FastAPI as FastAPI Lambda
+    participant Storage as S3/DynamoDB
+    
+    Note over Frontend, Storage: Step Functionsによる非同期処理フロー
+    
+    %% 初期リクエスト
+    Frontend->>APIGW: POST /search (時間がかかる処理)
+    APIGW->>InvokeLambda: リクエスト転送
+    InvokeLambda->>SF: Step Functions開始
+    InvokeLambda-->>APIGW: 実行ID即座に返却
+    APIGW-->>Frontend: {"executionId": "xxx", "status": "RUNNING"}
+    
+    %% Step Functions内部処理
+    SF->>ProxyLambda: 入力データ整形
+    ProxyLambda->>FastAPI: RAG処理実行
+    FastAPI->>Storage: データ処理・保存
+    Storage-->>FastAPI: 処理結果
+    FastAPI-->>ProxyLambda: 処理完了
+    ProxyLambda-->>SF: 整形済み結果
+    SF->>Storage: 実行結果保存
+    
+    %% ポーリング
+    loop ポーリング処理
+        Frontend->>APIGW: GET /execution/{executionId}/status
+        APIGW->>SF: 実行状態確認
+        SF-->>APIGW: 状態レスポンス
+        APIGW-->>Frontend: {"status": "RUNNING"} or {"status": "SUCCEEDED", "result": {...}}
+    end
+```
+
+#### 利点
+- **レスポンシブ性**: 長時間処理でもフロントエンドがブロックされない
+- **透明性**: 実行状態をリアルタイムで追跡可能
+- **エラーハンドリング**: Step Functionsによる堅牢な例外処理・リトライ機能
+- **スケーラビリティ**: 複数の長時間処理を並行実行可能
+
 ### 6.2 AWS アーキテクチャ構成図
 
-FastAPI基本機能の処理フロー: **API Gateway → Step Functions → Lambda**
+Step Functionsによる非同期処理フロー: **API Gateway → Lambda（SF起動）→ Step Functions → プロキシLambda → FastAPI**
 
 ```mermaid
 graph TB
@@ -400,13 +483,15 @@ graph TB
         AUTH[Cognito Authorizer]
     end
     
-    subgraph "Compute"
-        LAMBDA[Lambda Functions<br/>FastAPI + Mangum]
+    subgraph "Compute Layer"
+        INVOKE_LAMBDA[Step Functions起動Lambda<br/>実行ID即座返却]
         ECR[Amazon ECR<br/>Docker Images]
     end
     
-    subgraph "Orchestration"
-        SF[Step Functions<br/>RAG Workflow]
+    subgraph "Orchestration Layer"
+        SF[Step Functions<br/>非同期ワークフロー管理]
+        PROXY_LAMBDA[プロキシLambda<br/>データ整形・転送]
+        FASTAPI_LAMBDA[FastAPI Lambda<br/>RAG/チェック/アップロード処理]
     end
     
     subgraph "Storage"
@@ -421,6 +506,7 @@ graph TB
         DDB_HISTORY[DynamoDB ProcessingHistory<br/>処理履歴]
         DDB_PROMPTS[DynamoDB Prompts<br/>プロンプト管理]
         DDB_SESSIONS[DynamoDB UserSessions<br/>ユーザーセッション]
+        DDB_EXECUTION[DynamoDB ExecutionStatus<br/>実行状態管理]
     end
     
     subgraph "AI/ML Services"
@@ -440,58 +526,76 @@ graph TB
     FE -->|JWT Token| COGNITO
     COGNITO -->|Authorize| AUTH
     
-    %% API Flow
-    FE -->|HTTPS Requests| APIGW
+    %% API Flow - 非同期処理開始
+    FE -->|POST /search<br/>/check<br/>/upload| APIGW
     APIGW -->|Authorize| AUTH
-    AUTH -->|Execute| SF
+    AUTH -->|Execute| INVOKE_LAMBDA
+    INVOKE_LAMBDA -->|Start Execution| SF
+    INVOKE_LAMBDA -->|即座にレスポンス<br/>executionId| APIGW
     
-    %% Step Functions to Lambda
-    SF -->|Invoke| LAMBDA
-    ECR -->|Container Images| LAMBDA
+    %% API Flow - ポーリング
+    FE -.->|GET /execution/id/status<br/>ポーリング| APIGW
+    APIGW -.->|Status Check| SF
+    SF -.->|Status Response| APIGW
     
-    %% Data Storage
-    LAMBDA -->|Store/Retrieve| S3_DOC
-    LAMBDA -->|Temp Files| S3_TEMP
-    LAMBDA -->|Prompts| S3_PROMPT
+    %% Step Functions Workflow
+    SF -->|Invoke with Data| PROXY_LAMBDA
+    PROXY_LAMBDA -->|Format & Forward| FASTAPI_LAMBDA
+    FASTAPI_LAMBDA -->|Result| PROXY_LAMBDA
+    PROXY_LAMBDA -->|Formatted Result| SF
+    SF -->|Store Execution Result| DDB_EXECUTION
+    
+    %% Container Images
+    ECR -->|Images| INVOKE_LAMBDA
+    ECR -->|Images| PROXY_LAMBDA
+    ECR -->|Images| FASTAPI_LAMBDA
+    
+    %% Data Storage Access
+    FASTAPI_LAMBDA -->|Store/Retrieve| S3_DOC
+    FASTAPI_LAMBDA -->|Temp Files| S3_TEMP
+    FASTAPI_LAMBDA -->|Prompts| S3_PROMPT
     
     %% Database Operations
-    LAMBDA -->|Metadata| DDB_DOCS
-    LAMBDA -->|Chat Data| DDB_CHAT
-    LAMBDA -->|History| DDB_HISTORY
-    LAMBDA -->|Prompts Meta| DDB_PROMPTS
-    LAMBDA -->|Sessions| DDB_SESSIONS
+    FASTAPI_LAMBDA -->|Metadata| DDB_DOCS
+    FASTAPI_LAMBDA -->|Chat Data| DDB_CHAT
+    FASTAPI_LAMBDA -->|History| DDB_HISTORY
+    FASTAPI_LAMBDA -->|Prompts Meta| DDB_PROMPTS
+    FASTAPI_LAMBDA -->|Sessions| DDB_SESSIONS
     
     %% AI/ML Integration
-    LAMBDA -->|LLM Requests| BEDROCK
-    LAMBDA -->|Vector Operations| PINECONE
+    FASTAPI_LAMBDA -->|LLM Requests| BEDROCK
+    FASTAPI_LAMBDA -->|Vector Operations| PINECONE
     
     %% Security
-    LAMBDA -->|API Keys| SECRETS
+    FASTAPI_LAMBDA -->|API Keys| SECRETS
     
     %% Monitoring
-    LAMBDA -->|Logs| CW
+    INVOKE_LAMBDA -->|Logs| CW
+    PROXY_LAMBDA -->|Logs| CW
+    FASTAPI_LAMBDA -->|Logs| CW
     APIGW -->|Access Logs| CW
     SF -->|Execution Logs| CW
     
     %% S3 Event Triggers
-    S3_DOC -->|Object Created| LAMBDA
+    S3_DOC -->|Object Created| FASTAPI_LAMBDA
     
     %% Data Flow Styling
     classDef frontend fill:#e1f5fe
     classDef api fill:#f3e5f5
     classDef compute fill:#e8f5e8
-    classDef storage fill:#fff3e0
+    classDef orchestration fill:#fff3e0
+    classDef storage fill:#fff8e1
     classDef database fill:#fce4ec
     classDef ai fill:#e0f2f1
-    classDef security fill:#fff8e1
+    classDef security fill:#fff9c4
     classDef monitoring fill:#f1f8e9
     
     class FE frontend
-    class COGNITO,AUTH api
-    class APIGW api
-    class LAMBDA,ECR,SF compute
+    class COGNITO,AUTH,APIGW api
+    class INVOKE_LAMBDA,ECR compute
+    class SF,PROXY_LAMBDA,FASTAPI_LAMBDA orchestration
     class S3_DOC,S3_TEMP,S3_PROMPT storage
-    class DDB_DOCS,DDB_CHAT,DDB_HISTORY,DDB_PROMPTS,DDB_SESSIONS database
+    class DDB_DOCS,DDB_CHAT,DDB_HISTORY,DDB_PROMPTS,DDB_SESSIONS,DDB_EXECUTION database
     class BEDROCK,PINECONE ai
     class SECRETS security
     class CW monitoring
@@ -505,14 +609,16 @@ sequenceDiagram
     participant Frontend as フロントエンド
     participant APIGW as API Gateway
     participant Auth as Cognito Authorizer
+    participant InvokeLambda as Step Functions起動Lambda
     participant SF as Step Functions
-    participant Lambda as Lambda Function
+    participant ProxyLambda as プロキシLambda
+    participant FastAPI as FastAPI Lambda
     participant S3 as S3 Storage
     participant DDB as DynamoDB
     participant Bedrock as Amazon Bedrock
     participant Pinecone as Pinecone VectorDB
     
-    Note over User, Pinecone: Advanced RAG処理フロー (API Gateway → Step Functions → Lambda)
+    Note over User, Pinecone: Step Functions対応 Advanced RAG処理フロー
     
     %% Authentication
     User->>Frontend: 文書検索要求
@@ -520,35 +626,55 @@ sequenceDiagram
     APIGW->>Auth: トークン検証
     Auth-->>APIGW: 認証OK
     
-    %% Step Functions Processing
-    APIGW->>SF: Step Function実行開始
-    SF->>DDB: 処理開始ログ記録
+    %% Step Functions Processing - 非同期開始
+    APIGW->>InvokeLambda: リクエスト転送
+    InvokeLambda->>SF: Step Function実行開始
+    InvokeLambda->>DDB: 実行開始状態記録
+    InvokeLambda-->>APIGW: {"executionId": "xxx", "status": "RUNNING"}
+    APIGW-->>Frontend: 実行ID即座返却
     
-    %% RAG Workflow
-    SF->>Lambda: RAG Lambda呼び出し
+    %% Frontend Polling (背景処理)
+    loop ポーリング処理
+        Note over Frontend, APIGW: フロントエンドが状態確認
+        Frontend->>APIGW: GET /execution/{executionId}/status
+        APIGW->>SF: 実行状態確認
+        SF-->>APIGW: 状態レスポンス
+        APIGW-->>Frontend: {"status": "RUNNING/SUCCEEDED/FAILED"}
+    end
     
-    %% Document Search Flow
-    Lambda->>Bedrock: Embedding生成
-    Bedrock-->>Lambda: クエリベクトル
-    Lambda->>Pinecone: ベクトル検索実行
-    Pinecone-->>Lambda: 関連文書リスト
-    Lambda->>DDB: 文書メタデータ取得
-    Lambda->>S3: 文書内容取得
-    Lambda->>Bedrock: 検索回答生成
-    Bedrock-->>Lambda: 検索結果
+    %% Step Functions Workflow (並行処理)
+    par Step Functions内部処理
+        SF->>ProxyLambda: 入力データ整形
+        ProxyLambda->>FastAPI: RAG処理要求
+        
+        %% RAG Workflow
+        FastAPI->>Bedrock: Embedding生成
+        Bedrock-->>FastAPI: クエリベクトル
+        FastAPI->>Pinecone: ベクトル検索実行
+        Pinecone-->>FastAPI: 関連文書リスト
+        FastAPI->>DDB: 文書メタデータ取得
+        FastAPI->>S3: 文書内容取得
+        FastAPI->>Bedrock: 検索回答生成
+        Bedrock-->>FastAPI: 検索結果
+        
+        %% Result Processing
+        FastAPI->>DDB: 処理結果保存
+        FastAPI-->>ProxyLambda: RAG処理結果
+        ProxyLambda->>ProxyLambda: レスポンス整形
+        ProxyLambda-->>SF: 整形済み結果
+        SF->>DDB: 実行完了状態・結果保存
+    end
     
-    %% Response Flow
-    Lambda->>DDB: 処理結果保存
-    Lambda-->>SF: 処理結果
-    SF-->>APIGW: レスポンス
-    
-    %% Response
-    APIGW-->>Frontend: JSONレスポンス
-    Frontend-->>User: 結果表示
+    %% Final Polling Response
+    Frontend->>APIGW: GET /execution/{executionId}/status
+    APIGW->>SF: 最終状態確認
+    SF-->>APIGW: {"status": "SUCCEEDED", "result": {...}}
+    APIGW-->>Frontend: 完了結果
+    Frontend-->>User: 検索結果表示
     
     %% Monitoring
     SF->>DDB: ワークフロー履歴保存
-    Lambda->>DDB: RAG処理・結果ログ記録
+    FastAPI->>DDB: RAG処理・結果ログ記録
 ```
 
 ### 6.4 RAGワークフロー図
@@ -670,6 +796,7 @@ graph LR
 - **504 Gateway Timeout**
   - Step Function実行タイムアウト
   - 外部API呼び出しタイムアウト
+  - プロキシLambda応答タイムアウト
 
 #### 8.1.2 クライアントエラー（4xx系）
 
@@ -717,6 +844,16 @@ graph LR
 - **RAG_004**: 回答生成エラー
   - LLM API エラー
   - コンテキスト長制限超過
+
+- **SF_001**: Step Functions実行エラー
+  - ワークフロー定義エラー
+  - 状態遷移エラー
+  - 実行タイムアウト
+
+- **SF_002**: プロキシLambdaエラー
+  - データ整形失敗
+  - FastAPI通信エラー
+  - レスポンス変換エラー
 
 ## 9. 今後の拡張予定
 

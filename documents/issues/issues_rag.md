@@ -5,8 +5,7 @@
 ```markdown
 ## Issue タイトル
 **優先度**: High/Medium/Low
-**カテゴリ**: API/認証/RAG/エラーハンドリング/セキュリティ
-
+**カテゴリ**: API/RAG/エラーハンドリング/セキュリティ
 **依存関係**: [関連Issue番号]
 
 ### 課題概要
@@ -37,11 +36,10 @@
 ## RAG-001: REST APIエンドポイント基盤実装
 **優先度**: High
 **カテゴリ**: API
-
 **依存関係**: INFRA-001, INFRA-002
 
 ### 課題概要
-FastAPIを使用したRESTfulAPIエンドポイントの基盤を実装する。Mangumを使用してLambda環境でFastAPIを動作させる。
+FastAPIを使用したRESTfulAPIエンドポイントの基盤を実装する。Mangumを使用してLambda環境でFastAPIを動作させる。認証はAPI Gateway Cognito Authorizerで行うため、FastAPI側での認証実装は不要。
 
 ### 実装詳細
 - [ ] FastAPIアプリケーション基盤構築
@@ -53,7 +51,7 @@ FastAPIを使用したRESTfulAPIエンドポイントの基盤を実装する。
 
 ### 技術要件
 - 使用技術: FastAPI, Mangum, Pydantic
-- 制約事項: Lambda環境での動作、API Gateway連携
+- 制約事項: Lambda環境での動作、API Gateway連携、認証はAPI Gateway側で実装
 
 ### テスト項目
 - [ ] ヘルスチェックAPIテスト
@@ -67,43 +65,10 @@ FastAPIを使用したRESTfulAPIエンドポイントの基盤を実装する。
 
 ---
 
-## RAG-002: 認証・認可機能実装
-**優先度**: High
-**カテゴリ**: 認証
-
-**依存関係**: INFRA-003
-
-### 課題概要
-Cognito JWT Bearer Token認証を実装し、API Gateway Cognito Authorizerと連携する。
-
-### 実装詳細
-- [ ] JWT Bearer Token検証機能実装
-- [ ] FastAPI Dependenciesを使用した認証デコレータ作成
-- [ ] ユーザー権限チェック機能
-- [ ] 認証エラーハンドリング実装
-- [ ] セキュリティヘッダー設定
-
-### 技術要件
-- 使用技術: FastAPI, PyJWT, boto3
-- 制約事項: Cognito JWT形式準拠、API Gateway Authorizer連携
-
-### テスト項目
-- [ ] 有効トークンでの認証テスト
-- [ ] 無効トークンでの認証拒否テスト
-- [ ] 期限切れトークンでの認証拒否テスト
-
-### 完了条件
-- [ ] JWT認証機能動作確認
-- [ ] 権限チェック機能動作確認
-- [ ] エラーハンドリング動作確認
-
----
-
-## RAG-003: 文書検索API実装
+## RAG-002: 文書検索API実装
 **優先度**: High
 **カテゴリ**: RAG
-
-**依存関係**: RAG-001, RAG-002, INFRA-004, INFRA-005
+**依存関係**: RAG-001, INFRA-004, INFRA-005
 
 ### 課題概要
 `POST /search`エンドポイントを実装し、ベクトル検索、キーワード検索、ハイブリッド検索機能を提供する。
@@ -135,11 +100,10 @@ Cognito JWT Bearer Token認証を実装し、API Gateway Cognito Authorizerと�
 
 ---
 
-## RAG-004: チェック機能API実装
+## RAG-003: チェック機能API実装
 **優先度**: High
 **カテゴリ**: RAG
-
-**依存関係**: RAG-001, RAG-002, RAG-003
+**依存関係**: RAG-001, RAG-002
 
 ### 課題概要
 `POST /check`エンドポイントを実装し、コンプライアンスチェック、約款チェック、表記チェック機能を統合API として提供する。
@@ -171,11 +135,10 @@ Cognito JWT Bearer Token認証を実装し、API Gateway Cognito Authorizerと�
 
 ---
 
-## RAG-005: 文書管理API実装
+## RAG-004: 文書管理API実装
 **優先度**: Medium
 **カテゴリ**: API
-
-**依存関係**: RAG-001, RAG-002, INFRA-001, INFRA-006
+**依存関係**: RAG-001, INFRA-001, INFRA-006
 
 ### 課題概要
 文書アップロード、ダウンロード、一覧取得、削除のCRUD APIを実装する。
@@ -207,11 +170,10 @@ Cognito JWT Bearer Token認証を実装し、API Gateway Cognito Authorizerと�
 
 ---
 
-## RAG-006: サンドボックス環境API実装
+## RAG-005: サンドボックス環境API実装
 **優先度**: Medium
 **カテゴリ**: API
-
-**依存関係**: RAG-001, RAG-002, INFRA-007
+**依存関係**: RAG-001, INFRA-007
 
 ### 課題概要
 プロンプト管理機能を提供するサンドボックス環境APIを実装する。
@@ -241,11 +203,10 @@ Cognito JWT Bearer Token認証を実装し、API Gateway Cognito Authorizerと�
 
 ---
 
-## RAG-007: 履歴管理API実装
+## RAG-006: 履歴管理API実装
 **優先度**: Medium
 **カテゴリ**: API
-
-**依存関係**: RAG-001, RAG-002, INFRA-008
+**依存関係**: RAG-001, INFRA-008
 
 ### 課題概要
 検索履歴とチェック履歴を管理するAPIを実装する。
@@ -274,10 +235,9 @@ Cognito JWT Bearer Token認証を実装し、API Gateway Cognito Authorizerと�
 
 ---
 
-## RAG-008: エラーハンドリング・ログ機能実装
+## RAG-007: エラーハンドリング・ログ機能実装
 **優先度**: High
 **カテゴリ**: エラーハンドリング
-
 **依存関係**: RAG-001
 
 ### 課題概要
@@ -307,11 +267,10 @@ Cognito JWT Bearer Token認証を実装し、API Gateway Cognito Authorizerと�
 
 ---
 
-## RAG-009: データ処理パイプライン実装
+## RAG-008: データ処理パイプライン実装
 **優先度**: Medium
 **カテゴリ**: RAG
-
-**依存関係**: RAG-005, INFRA-009
+**依存関係**: RAG-004, INFRA-009
 
 ### 課題概要
 文書アップロード時のチャンキング・ベクトル化処理パイプラインを実装する。
@@ -342,35 +301,30 @@ Cognito JWT Bearer Token認証を実装し、API Gateway Cognito Authorizerと�
 
 ---
 
-## RAG-010: セキュリティ機能実装
-**優先度**: High
+## RAG-009: セキュリティ機能実装
+**優先度**: Medium
 **カテゴリ**: セキュリティ
-
-**依存関係**: RAG-001, RAG-002
+**依存関係**: RAG-001
 
 ### 課題概要
-セキュリティ要件に沿った暗号化、アクセス制御、監査ログ機能を実装する。
+セキュリティ要件に沿った暗号化、監査ログ機能を実装する。認証・認可はAPI Gateway側で実装済み。
 
 ### 実装詳細
-- [ ] HTTPS通信強制 (TLS 1.2以上)
 - [ ] リクエスト・レスポンスの機密情報マスキング
-- [ ] レート制限実装 (1000リクエスト/時間)
 - [ ] セキュリティヘッダー実装
 - [ ] 監査ログ実装
 - [ ] APIアクセスログ実装
 
 ### 技術要件
 - 使用技術: FastAPI middleware, boto3
-- 制約事項: TLS 1.2以上、機密情報保護
+- 制約事項: 機密情報保護、認証はAPI Gateway側で実装
 
 ### テスト項目
-- [ ] HTTPS通信テスト
-- [ ] レート制限テスト
 - [ ] セキュリティヘッダーテスト
 - [ ] 監査ログテスト
+- [ ] 機密情報マスキングテスト
 
 ### 完了条件
 - [ ] セキュリティ機能動作確認
 - [ ] 監査ログ動作確認
-- [ ] レート制限動作確認
-
+- [ ] 機密情報保護確認

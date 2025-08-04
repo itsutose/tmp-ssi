@@ -1,7 +1,3 @@
-
-## ✅ 作業項目2: AWSリソース関連課題（issues_infra.md）の作成
-
-```markdown:sony-sonpo-cdk/issues/issues_infra.md
 # AWSリソース関連 Issue一覧
 
 ## Issue テンプレート
@@ -10,7 +6,6 @@
 ## Issue タイトル
 **優先度**: High/Medium/Low
 **カテゴリ**: DynamoDB/S3/Lambda/API Gateway/Security/Monitoring
-
 **依存関係**: [関連Issue番号]
 
 ### 課題概要
@@ -41,7 +36,6 @@
 ## INFRA-001: DynamoDB テーブル群作成・設定
 **優先度**: High
 **カテゴリ**: DynamoDB
-
 **依存関係**: なし
 
 ### 課題概要
@@ -78,7 +72,6 @@ Advanced RAGシステムで使用する5つのDynamoDBテーブルをCDKで作�
 ## INFRA-002: S3 バケット構成作成・設定
 **優先度**: High
 **カテゴリ**: S3
-
 **依存関係**: なし
 
 ### 課題概要
@@ -113,9 +106,8 @@ Advanced RAGシステムで使用する5つのDynamoDBテーブルをCDKで作�
 ---
 
 ## INFRA-003: Cognito ユーザープール設定
-**優先度**: High
+**優先度**: Low
 **カテゴリ**: Security
-
 **依存関係**: なし
 
 ### 課題概要
@@ -149,7 +141,6 @@ JWT Bearer Token認証のためのCognitoユーザープールとAPI Gateway Aut
 ## INFRA-004: API Gateway REST API設定
 **優先度**: High
 **カテゴリ**: API Gateway
-
 **依存関係**: INFRA-003, INFRA-005
 
 ### 課題概要
@@ -186,7 +177,6 @@ RESTful APIエンドポイントを提供するAPI Gatewayを設定し、Lambda�
 ## INFRA-005: Lambda関数設定・ECR連携
 **優先度**: High
 **カテゴリ**: Lambda
-
 **依存関係**: INFRA-006
 
 ### 課題概要
@@ -222,7 +212,6 @@ FastAPI + MangumによるLambda関数をECRコンテナイメージで実行す�
 ## INFRA-006: ECR リポジトリ設定
 **優先度**: High
 **カテゴリ**: ECR
-
 **依存関係**: なし
 
 ### 課題概要
@@ -255,7 +244,6 @@ FastAPIアプリケーションのDockerイメージを管理するECRリポジ�
 ## INFRA-007: Step Functions ワークフロー設定
 **優先度**: Medium
 **カテゴリ**: Step Functions
-
 **依存関係**: INFRA-005
 
 ### 課題概要
@@ -289,7 +277,6 @@ RAG処理とチェック処理のワークフロー管理にStep Functionsを設
 ## INFRA-008: Secrets Manager設定
 **優先度**: Medium
 **カテゴリ**: Security
-
 **依存関係**: なし
 
 ### 課題概要
@@ -322,7 +309,6 @@ PineconeやBedrock等のAPIキーを安全に管理するSecrets Managerを設�
 ## INFRA-009: CloudWatch 監視・ログ設定
 **優先度**: Medium
 **カテゴリ**: Monitoring
-
 **依存関係**: INFRA-004, INFRA-005
 
 ### 課題概要
@@ -356,7 +342,6 @@ PineconeやBedrock等のAPIキーを安全に管理するSecrets Managerを設�
 ## INFRA-010: IAM ロール・ポリシー設定
 **優先度**: High
 **カテゴリ**: Security
-
 **依存関係**: INFRA-001, INFRA-002, INFRA-005
 
 ### 課題概要
@@ -391,7 +376,6 @@ PineconeやBedrock等のAPIキーを安全に管理するSecrets Managerを設�
 ## INFRA-011: 環境別デプロイメント設定
 **優先度**: Medium
 **カテゴリ**: Deployment
-
 **依存関係**: 全INFRA課題
 
 ### 課題概要
@@ -425,7 +409,6 @@ dev、staging、prodの環境別デプロイメント機能をCDKで実装する
 ## INFRA-012: セキュリティ設定・監査
 **優先度**: High
 **カテゴリ**: Security
-
 **依存関係**: 全INFRA課題
 
 ### 課題概要
@@ -454,20 +437,3 @@ dev、staging、prodの環境別デプロイメント機能をCDKで実装する
 - [ ] セキュリティ設定確認
 - [ ] 監査機能動作確認
 - [ ] コンプライアンス要件満足確認
-```
-
-## 完了報告
-
-✅ **作業項目1**: FastAPI実装関連課題（issues_rag.md）の作成完了
-- 10個のRAG関連Issueを作成
-- 共通テンプレートを使用
-- 依存関係と優先度を明記
-
-✅ **作業項目2**: AWSリソース関連課題（issues_infra.md）の作成完了  
-- 12個のInfra関連Issueを作成
-- 共通テンプレートを使用
-- 依存関係と優先度を明記
-
-## コミットメッセージ案
-
-documentsディレクトリの分析に基づき、issuesディレクトリにFastAPI実装とAWSリソース構築の詳細なIssue一覧を作成しました。
