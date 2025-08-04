@@ -35,7 +35,39 @@ Advanced RAGシステムのバックエンドAPIサービスを構築し、文�
   - 検索対象：表記方法をまとめたCSVファイル（notation/style-guides, notation/dictionaries）
   - 処理方式：同期処理（即座にチェック結果を返す）
 
-#### 3.1.2 RAG処理パイプライン
+#### 3.1.2 簡素化されたチェック処理フロー
+
+```mermaid
+graph LR
+    subgraph "📝 チェック処理"
+        A["文書入力"] --> B["POST /check"]
+        B --> C["Step Functions"]
+        C --> D["Lambda実行"]
+        D --> E["Bedrock解析"]
+        D --> F["Pinecone検索"]
+        D --> G["S3参照文書"]
+        E --> H["チェック結果生成"]
+        F --> H
+        G --> H
+        H --> I["結果返却"]
+    end
+    
+    subgraph "✅ 結果内容"
+        I --> J["問題点リスト"]
+        J --> K["重要度"]
+        J --> L["場所"]
+        J --> M["参照文書"]
+    end
+    
+    %% Styling
+    classDef process fill:#fff3e0
+    classDef result fill:#e8f5e8
+    
+    class A,B,C,D,E,F,G,H,I process
+    class J,K,L,M result
+```
+
+#### 3.1.3 RAG処理パイプライン
 
 - **Pre-Retrieval処理**
   - 検索クエリの生成・拡張
@@ -167,6 +199,34 @@ Advanced RAGシステムのバックエンドAPIサービスを構築し、文�
   - プロンプト内容取得
   - プロンプト作成・更新
 - **用途**: チェック処理で使用するプロンプトのカスタマイズ
+
+#### 3.5.2 簡素化されたサンドボックス機能フロー
+
+```mermaid
+graph TB
+    subgraph "🏖️ サンドボックス環境"
+        A["ユーザー"] --> B["プロンプト編集"]
+        B --> C["DynamoDB<br/>Prompts テーブル"]
+        C --> D["プロンプト保存"]
+        D --> E["チェック処理でテスト"]
+        E --> F{"結果満足？"}
+        F -->|No| B
+        F -->|Yes| G["完了"]
+    end
+    
+    subgraph "🎯 本番利用"
+        E --> H["POST /check"]
+        H --> I["カスタムプロンプト使用"]
+        I --> J["チェック結果返却"]
+    end
+    
+    %% Styling
+    classDef sandbox fill:#e3f2fd
+    classDef production fill:#e8f5e8
+    
+    class A,B,C,D,E,F,G sandbox
+    class H,I,J production
+```
 
 
 
@@ -352,8 +412,7 @@ graph TB
     subgraph "Storage"
         S3_DOC[S3 Documents Bucket<br/>文書原本保管]
         S3_TEMP[S3 Temporary Bucket<br/>一時ファイル保管]
-        S3_PROMPT[S3 Prompts Bucket<br/>プロンプト管理]
-        S3_SANDBOX[S3 Sandbox Bucket<br/>サンドボックス環境]
+        S3_PROMPT[S3 Prompts Bucket<br/>プロンプト管理（オプション）]
     end
     
     subgraph "Database"
@@ -394,7 +453,6 @@ graph TB
     LAMBDA -->|Store/Retrieve| S3_DOC
     LAMBDA -->|Temp Files| S3_TEMP
     LAMBDA -->|Prompts| S3_PROMPT
-    LAMBDA -->|Sandbox| S3_SANDBOX
     
     %% Database Operations
     LAMBDA -->|Metadata| DDB_DOCS
@@ -432,7 +490,7 @@ graph TB
     class COGNITO,AUTH api
     class APIGW api
     class LAMBDA,ECR,SF compute
-    class S3_DOC,S3_TEMP,S3_PROMPT,S3_SANDBOX storage
+    class S3_DOC,S3_TEMP,S3_PROMPT storage
     class DDB_DOCS,DDB_CHAT,DDB_HISTORY,DDB_PROMPTS,DDB_SESSIONS database
     class BEDROCK,PINECONE ai
     class SECRETS security
@@ -457,7 +515,7 @@ sequenceDiagram
     Note over User, Pinecone: Advanced RAG処理フロー (API Gateway → Step Functions → Lambda)
     
     %% Authentication
-    User->>Frontend: RAG処理要求
+    User->>Frontend: 文書検索要求
     Frontend->>APIGW: POST /search (JWT Token)
     APIGW->>Auth: トークン検証
     Auth-->>APIGW: 認証OK
@@ -466,50 +524,23 @@ sequenceDiagram
     APIGW->>SF: Step Function実行開始
     SF->>DDB: 処理開始ログ記録
     
+    %% RAG Workflow
+    SF->>Lambda: RAG Lambda呼び出し
+    
     %% Document Search Flow
-    alt 文書検索の場合
-        SF->>Lambda: 検索Lambda呼び出し
-        Lambda->>Bedrock: Embedding生成
-        Bedrock-->>Lambda: クエリベクトル
-        Lambda->>Pinecone: ベクトル検索実行
-        Pinecone-->>Lambda: 関連文書リスト
-        Lambda->>DDB: 文書メタデータ取得
-        Lambda->>S3: 文書内容取得
-        Lambda->>Bedrock: RAG回答生成
-        Bedrock-->>Lambda: 最終回答
-        Lambda->>DDB: 処理結果保存
-        Lambda-->>SF: 検索結果
-        SF-->>APIGW: 検索結果レスポンス
+    Lambda->>Bedrock: Embedding生成
+    Bedrock-->>Lambda: クエリベクトル
+    Lambda->>Pinecone: ベクトル検索実行
+    Pinecone-->>Lambda: 関連文書リスト
+    Lambda->>DDB: 文書メタデータ取得
+    Lambda->>S3: 文書内容取得
+    Lambda->>Bedrock: 検索回答生成
+    Bedrock-->>Lambda: 検索結果
     
-    %% Check Processing Flow    
-    else チェック処理の場合
-        SF->>Lambda: チェックLambda呼び出し
-        Lambda->>Bedrock: 文書解析
-        Lambda->>Pinecone: 関連法規検索
-        Lambda->>S3: 参照文書取得
-        Lambda->>Bedrock: コンプライアンス判定
-        Lambda->>DDB: 処理結果保存
-        Lambda-->>SF: チェック結果
-        SF-->>APIGW: チェック結果レスポンス
-    
-    %% File Upload Flow
-    else ファイルアップロードの場合
-        SF->>Lambda: アップロードLambda呼び出し
-        Lambda->>S3: 一時アップロード
-        Lambda->>DDB: メタデータ登録
-        Lambda-->>SF: アップロード完了
-        Note over S3: S3イベントトリガー
-        S3->>SF: 文書処理Step Function開始
-        SF->>Lambda: 文書処理Lambda呼び出し
-        Lambda->>Lambda: テキスト抽出
-        Lambda->>Bedrock: チャンキング処理
-        Lambda->>Bedrock: Embedding生成
-        Lambda->>Pinecone: ベクトル登録
-        Lambda->>S3: 最終保存先に移動
-        Lambda->>DDB: ステータス更新
-        Lambda-->>SF: 処理完了
-        SF-->>APIGW: 処理完了レスポンス
-    end
+    %% Response Flow
+    Lambda->>DDB: 処理結果保存
+    Lambda-->>SF: 処理結果
+    SF-->>APIGW: レスポンス
     
     %% Response
     APIGW-->>Frontend: JSONレスポンス
@@ -517,78 +548,67 @@ sequenceDiagram
     
     %% Monitoring
     SF->>DDB: ワークフロー履歴保存
-    Lambda->>DDB: 処理ログ記録
+    Lambda->>DDB: RAG処理・結果ログ記録
 ```
 
-### 6.4 データフロー図
+### 6.4 RAGワークフロー図
 
 ```mermaid
 graph LR
     subgraph "Input Layer"
-        USER[ユーザー入力]
-        UPLOAD[ファイルアップロード]
+        SEARCH_QUERY[検索クエリ]
     end
     
-    subgraph "Processing Layer"
-        PREPROCESS[前処理]
-        CHUNK[チャンキング]
+    subgraph "RAG Processing Layer"
+        PREPROCESS[前処理・クエリ拡張]
         EMBED[Embedding生成]
-        SEARCH[ベクトル検索]
-        RANK[リランキング]
+        VECTOR_SEARCH[ベクトル検索]
+        RETRIEVE[関連文書取得]
         GENERATE[回答生成]
     end
     
     subgraph "Storage Layer"
-        S3_ORIG[S3: 原本ファイル]
-        S3_PROC[S3: 処理済みデータ]
-        VECTOR[Pinecone: ベクトルDB]
-        META[DynamoDB: メタデータ]
+        S3_DOCS[S3: 文書原本]
+        VECTOR_DB[Pinecone: ベクトルDB]
+        DDB_META[DynamoDB: メタデータ]
     end
     
     subgraph "AI Services"
         BEDROCK_EMBED[Bedrock: Embedding]
-        BEDROCK_LLM[Bedrock: LLM]
+        BEDROCK_LLM[Bedrock: LLM生成]
     end
     
-    %% Input Flow
-    USER -->|クエリ| PREPROCESS
-    UPLOAD -->|PDF/CSV/TXT| CHUNK
+    subgraph "Output Layer"
+        SEARCH_RESULT[検索結果]
+    end
     
     %% Processing Flow
-    PREPROCESS -->|クエリ拡張| EMBED
-    CHUNK -->|テキスト分割| EMBED
-    EMBED -->|ベクトル化| SEARCH
-    SEARCH -->|関連文書取得| RANK
-    RANK -->|スコア調整| GENERATE
+    SEARCH_QUERY -->|文書検索| PREPROCESS
+    PREPROCESS --> EMBED
+    EMBED --> VECTOR_SEARCH
+    VECTOR_SEARCH --> RETRIEVE
+    RETRIEVE --> GENERATE
+    GENERATE --> SEARCH_RESULT
     
-    %% Storage Operations
-    UPLOAD -->|保存| S3_ORIG
-    CHUNK -->|メタデータ| META
-    EMBED -->|ベクトル保存| VECTOR
-    GENERATE -->|結果保存| S3_PROC
-    
-    %% AI Service Calls
+    %% Storage Integration
     EMBED -.->|API Call| BEDROCK_EMBED
-    SEARCH -.->|クエリ| VECTOR
-    GENERATE -.->|API Call| BEDROCK_LLM
-    
-    %% Data Retrieval
-    SEARCH -->|メタデータ参照| META
-    RANK -->|原本参照| S3_ORIG
-    
-    %% Output
-    GENERATE -->|最終回答| USER
+    VECTOR_SEARCH -.->|ベクトル検索| VECTOR_DB
+    RETRIEVE -->|メタデータ取得| DDB_META
+    RETRIEVE -->|文書内容取得| S3_DOCS
+    GENERATE -.->|結果生成| BEDROCK_LLM
     
     %% Styling
     classDef input fill:#e3f2fd
     classDef process fill:#f1f8e9
     classDef storage fill:#fff3e0
     classDef ai fill:#e8f5e8
+    classDef output fill:#e0f2f1
     
-    class USER,UPLOAD input
-    class PREPROCESS,CHUNK,EMBED,SEARCH,RANK,GENERATE process
-    class S3_ORIG,S3_PROC,VECTOR,META storage
+    class SEARCH_QUERY input
+    class PREPROCESS,EMBED,VECTOR_SEARCH,RETRIEVE,GENERATE process
+    class S3_DOCS,VECTOR_DB,DDB_META storage
     class BEDROCK_EMBED,BEDROCK_LLM ai
+    class SEARCH_RESULT output
 ```
 
 ### 6.5 開発・運用環境
