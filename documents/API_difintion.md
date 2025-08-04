@@ -343,16 +343,54 @@ Accept: application/json
 
 #### 4.4.4 文書削除
 - **エンドポイント**: `DELETE /documents/{document_id}`
-- **概要**: 指定された文書を削除
+- **概要**: 指定された文書を削除（DynamoDB + S3 + Pinecone）
 - **認証**: 認証要
 - **使用データストア**: DynamoDB Documents テーブル（レコード削除）、S3（オブジェクト削除）、Pinecone（ベクトルデータ削除）
+- **処理フロー**:
+  1. DynamoDBから文書メタデータ取得
+  2. S3オブジェクト削除
+  3. Pineconeベクトルデータ削除
+  4. DynamoDBレコード削除
+  5. カテゴリの文書数カウント更新
 - **リクエストパラメータ**: URL パラメータのみ
 - **レスポンス**:
 ```json
 {
   "success": true,
   "message": "文書が正常に削除されました",
-  "document_id": "doc123"
+  "document_id": "doc123",
+  "deleted_resources": {
+    "s3_object": "compliance/doc123/document.pdf",
+    "vector_data": "vector-id-123",
+    "dynamodb_record": true
+  }
+}
+```
+
+#### 4.4.5 カテゴリ別文書一括削除
+- **エンドポイント**: `DELETE /documents/category/{category_id}`
+- **概要**: 指定されたカテゴリ内のすべての文書を削除
+- **認証**: 認証要
+- **使用データストア**: DynamoDB Documents テーブル、Categories テーブル、S3、Pinecone
+- **処理フロー**:
+  1. カテゴリ内の全文書リスト取得
+  2. 各文書のS3オブジェクト削除
+  3. 各文書のPineconeベクトルデータ削除
+  4. DynamoDB文書レコード一括削除
+  5. カテゴリの文書数カウントリセット
+- **リクエストパラメータ**: URL パラメータのみ
+- **レスポンス**:
+```json
+{
+  "success": true,
+  "message": "カテゴリ内の全文書が削除されました",
+  "category_id": "cat123",
+  "deleted_count": 25,
+  "deleted_resources": {
+    "s3_objects": 25,
+    "vector_data_count": 150,
+    "dynamodb_records": 25
+  }
 }
 ```
 
@@ -423,11 +461,246 @@ Accept: application/json
 }
 ```
 
+#### 4.5.4 サンドボックステスト実行
+- **エンドポイント**: `POST /sandbox/test`
+- **概要**: 指定されたプロンプトでテストを実行
+- **認証**: 認証要
+- **使用データストア**: DynamoDB SandboxTests テーブル
+- **処理方式**: Step Functions非同期処理
+- **リクエストパラメータ**:
+```json
+{
+  "test_name": "コンプライアンスチェックテスト1",
+  "test_description": "新プロンプトの効果検証",
+  "prompt_id": "prompt123",
+  "check_type": "compliance",
+  "input_document": "テスト用文書内容..."
+}
+```
+- **レスポンス**:
+```json
+{
+  "test_id": "test-456",
+  "execution_id": "exec-789",
+  "status": "RUNNING",
+  "message": "テストを開始しました"
+}
+```
+
+#### 4.5.5 サンドボックステスト一覧取得
+- **エンドポイント**: `GET /sandbox/tests`
+- **概要**: サンドボックステストの履歴一覧を取得
+- **認証**: 認証要
+- **使用データストア**: DynamoDB SandboxTests テーブル（GSI: userId-createdAt-index使用）
+- **リクエストパラメータ**:
+```json
+{
+  "page": 1,
+  "limit": 20,
+  "prompt_id": "prompt123", // オプション：特定プロンプトのテストのみ
+  "check_type": "compliance", // オプション：チェック種別フィルタ
+  "date_from": "2024-01-01",
+  "date_to": "2024-01-31"
+}
+```
+- **レスポンス**:
+```json
+{
+  "tests": [
+    {
+      "test_id": "test-456",
+      "test_name": "コンプライアンスチェックテスト1",
+      "prompt_id": "prompt123",
+      "check_type": "compliance",
+      "status": "completed",
+      "created_at": "2024-01-01T00:00:00Z",
+      "processing_time_ms": 2500,
+      "summary": {
+        "total_issues": 3,
+        "high_severity": 1,
+        "medium_severity": 2
+      }
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 50
+  }
+}
+```
+
+#### 4.5.6 サンドボックステスト結果ダウンロード
+- **エンドポイント**: `GET /sandbox/tests/{test_id}/download`
+- **概要**: 指定されたテスト結果をファイル形式でダウンロード
+- **認証**: 認証要
+- **使用データストア**: DynamoDB SandboxTests テーブル
+- **リクエストパラメータ**:
+```json
+{
+  "format": "json", // json, csv, pdf
+  "include_details": true // 詳細結果を含むかどうか
+}
+```
+- **レスポンス**:
+```json
+{
+  "download_url": "https://s3.amazonaws.com/bucket/sandbox-results/test-456.json?signature=...",
+  "expires_at": "2024-01-01T01:00:00Z",
+  "file_info": {
+    "filename": "sandbox_test_456_2024-01-01.json",
+    "size": 45600,
+    "format": "json"
+  }
+}
+```
 
 
-### 4.6 履歴管理API
 
-#### 4.6.1 検索履歴取得
+### 4.6 カテゴリ管理API
+
+#### 4.6.1 カテゴリ一覧取得
+- **エンドポイント**: `GET /categories`
+- **概要**: 利用可能なカテゴリの一覧を取得
+- **認証**: 認証要
+- **使用データストア**: DynamoDB Categories テーブル（GSI: isActive-createdAt-index使用）
+- **リクエストパラメータ**:
+```json
+{
+  "include_inactive": false, // 非アクティブカテゴリも含めるか
+  "parent_category_id": "parent123" // オプション：特定の親カテゴリの子カテゴリのみ
+}
+```
+- **レスポンス**:
+```json
+{
+  "categories": [
+    {
+      "category_id": "cat123",
+      "name": "compliance",
+      "display_name": "コンプライアンス",
+      "description": "法務・コンプライアンス関連文書",
+      "s3_prefix": "legal/compliance/",
+      "document_count": 45,
+      "color": "#ff5722",
+      "icon": "gavel",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total_count": 8
+}
+```
+
+#### 4.6.2 カテゴリ作成
+- **エンドポイント**: `POST /categories`
+- **概要**: 新しいカテゴリを作成
+- **認証**: 認証要
+- **使用データストア**: DynamoDB Categories テーブル
+- **リクエストパラメータ**:
+```json
+{
+  "name": "new_category",
+  "display_name": "新カテゴリ",
+  "description": "新しいカテゴリの説明",
+  "s3_prefix": "documents/new_category/",
+  "parent_category_id": "parent123", // オプション：親カテゴリ
+  "color": "#2196f3",
+  "icon": "folder"
+}
+```
+- **レスポンス**:
+```json
+{
+  "success": true,
+  "category_id": "cat456",
+  "message": "カテゴリが正常に作成されました"
+}
+```
+
+#### 4.6.3 カテゴリ更新
+- **エンドポイント**: `PUT /categories/{category_id}`
+- **概要**: 既存カテゴリの情報を更新
+- **認証**: 認証要
+- **使用データストア**: DynamoDB Categories テーブル
+- **リクエストパラメータ**:
+```json
+{
+  "display_name": "更新されたカテゴリ名",
+  "description": "更新された説明",
+  "color": "#4caf50",
+  "icon": "updated_icon",
+  "is_active": true
+}
+```
+- **レスポンス**:
+```json
+{
+  "success": true,
+  "category_id": "cat456",
+  "message": "カテゴリが正常に更新されました"
+}
+```
+
+#### 4.6.4 文書カテゴリ変更
+- **エンドポイント**: `PUT /documents/{document_id}/category`
+- **概要**: 文書のカテゴリを変更
+- **認証**: 認証要
+- **使用データストア**: DynamoDB Documents テーブル、Categories テーブル
+- **処理フロー**:
+  1. 現在のカテゴリ文書数デクリメント
+  2. 新カテゴリ文書数インクリメント
+  3. 文書レコードのカテゴリ更新
+  4. S3オブジェクト移動（必要に応じて）
+- **リクエストパラメータ**:
+```json
+{
+  "new_category_id": "cat789",
+  "move_s3_object": true // S3オブジェクトも移動するか
+}
+```
+- **レスポンス**:
+```json
+{
+  "success": true,
+  "document_id": "doc123",
+  "old_category_id": "cat456",
+  "new_category_id": "cat789",
+  "s3_object_moved": true,
+  "new_s3_key": "new_category/doc123/document.pdf"
+}
+```
+
+#### 4.6.5 カテゴリ削除
+- **エンドポイント**: `DELETE /categories/{category_id}`
+- **概要**: カテゴリと関連する全文書を削除
+- **認証**: 認証要
+- **使用データストア**: DynamoDB Categories テーブル、Documents テーブル、S3、Pinecone
+- **処理フロー**:
+  1. カテゴリ内の全文書削除（4.4.5と同様）
+  2. 子カテゴリの処理（削除または親カテゴリ変更）
+  3. カテゴリレコード削除
+- **リクエストパラメータ**:
+```json
+{
+  "force_delete": false, // 文書が存在してもカテゴリを削除するか
+  "handle_subcategories": "delete" // "delete", "move_to_parent", "orphan"
+}
+```
+- **レスポンス**:
+```json
+{
+  "success": true,
+  "category_id": "cat456",
+  "deleted_documents": 15,
+  "deleted_subcategories": 3,
+  "message": "カテゴリと関連データがすべて削除されました"
+}
+```
+
+### 4.7 履歴管理API
+
+#### 4.7.1 検索履歴取得
 - **エンドポイント**: `GET /history/search`
 - **概要**: ユーザーの検索履歴を取得
 - **認証**: 認証要
@@ -461,7 +734,7 @@ Accept: application/json
 }
 ```
 
-#### 4.6.2 チェック履歴取得
+#### 4.7.2 チェック履歴取得
 - **エンドポイント**: `GET /history/checks`
 - **概要**: チェック処理の履歴を取得
 - **認証**: 認証要

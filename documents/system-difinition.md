@@ -119,6 +119,37 @@ graph LR
   - 文書の目録と保管先：DynamoDBに登録
   - 文書のメタデータ管理
 
+#### 3.2.1.1 高度なドキュメント削除機能
+
+- **単一文書削除**
+  - DynamoDB文書レコード削除
+  - S3オブジェクト削除
+  - Pineconeベクトルデータ削除
+  - カテゴリ文書数カウント更新
+
+- **カテゴリ別一括削除**
+  - 指定カテゴリ内の全文書削除
+  - 関連S3オブジェクト一括削除
+  - 関連ベクトルデータ一括削除
+  - 削除処理の進捗追跡
+
+#### 3.2.1.2 カテゴリ管理機能
+
+- **カテゴリ階層管理**
+  - 親子関係を持つカテゴリ構造
+  - カテゴリ作成・更新・削除
+  - カテゴリ別文書数の自動集計
+
+- **文書カテゴリ変更**
+  - 文書の所属カテゴリ変更
+  - S3オブジェクトの移動（オプション）
+  - カテゴリ文書数の自動更新
+
+- **カテゴリメタデータ管理**
+  - 表示名・説明・アイコン・色の管理
+  - S3保存プレフィックスの管理
+  - アクティブ/非アクティブ状態管理
+
 #### 3.2.2 S3ストレージ構成
 
 - **Documents バケット**: 文書原本保管
@@ -162,6 +193,19 @@ graph LR
   - GSI: sessionId-index
   - TTL: 30日間
 
+- **SandboxTests テーブル**: サンドボックステスト管理
+  - Primary Key: testId
+  - GSI: userId-createdAt-index, promptId-createdAt-index, checkType-createdAt-index
+  - TTL: 1年間
+
+- **Categories テーブル**: カテゴリ管理
+  - Primary Key: categoryId
+  - GSI: name-index, parentCategoryId-index, isActive-createdAt-index
+
+- **AlertSettings テーブル**: アラート設定管理
+  - Primary Key: alertId
+  - GSI: alertType-severity-index, isActive-createdAt-index
+
 ### 3.3 履歴管理機能
 
 #### 3.3.1 回答履歴の参照
@@ -184,9 +228,10 @@ graph LR
 - **ヘルスチェック系**: `/health`, `/rag/health`
 - **文書検索系**: `POST /search` ※Step Functions非同期処理
 - **チェック系**: `POST /check` ※Step Functions非同期処理
-- **文書管理系**: `POST /upload` ※Step Functions非同期処理, `GET /download`, `GET /documents`, `DELETE /documents/{id}`
+- **文書管理系**: `POST /upload` ※Step Functions非同期処理, `GET /download`, `GET /documents`, `DELETE /documents/{id}`, `DELETE /documents/category/{category}`
+- **カテゴリ管理系**: `GET /categories`, `POST /categories`, `PUT /categories/{id}`, `DELETE /categories/{id}`
 - **実行状態管理**: `GET /execution/{executionId}/status`, `GET /execution/{executionId}/result`
-- **サンドボックス管理**: `GET /sandbox/prompts`, `GET /sandbox/prompts/{id}`, `POST /sandbox/prompts`, `PUT /sandbox/prompts/{id}`
+- **サンドボックス管理**: `GET /sandbox/prompts`, `GET /sandbox/prompts/{id}`, `POST /sandbox/prompts`, `PUT /sandbox/prompts/{id}`, `POST /sandbox/test`, `GET /sandbox/tests`, `GET /sandbox/tests/{id}/download`
 - **履歴管理**: `GET /history/search`, `GET /history/checks`
 
 #### 3.4.2 Step Functions対応APIの動作
@@ -220,7 +265,7 @@ graph LR
   - プロンプト作成・更新
 - **用途**: チェック処理で使用するプロンプトのカスタマイズ
 
-#### 3.5.2 簡素化されたサンドボックス機能フロー
+#### 3.5.2 サンドボックス機能フロー
 
 ```mermaid
 graph TB
@@ -228,25 +273,51 @@ graph TB
         A["ユーザー"] --> B["プロンプト編集"]
         B --> C["DynamoDB<br/>Prompts テーブル"]
         C --> D["プロンプト保存"]
-        D --> E["チェック処理でテスト"]
-        E --> F{"結果満足？"}
-        F -->|No| B
-        F -->|Yes| G["完了"]
+        D --> E["テスト実行"]
+        E --> F["DynamoDB<br/>SandboxTests テーブル"]
+        F --> G["テスト結果保存"]
+        G --> H["結果ダウンロード"]
+        H --> I{"結果満足？"}
+        I -->|No| B
+        I -->|Yes| J["完了"]
     end
     
     subgraph "🎯 本番利用"
-        E --> H["POST /check"]
-        H --> I["カスタムプロンプト使用"]
-        I --> J["チェック結果返却"]
+        E --> K["POST /check"]
+        K --> L["カスタムプロンプト使用"]
+        L --> M["チェック結果返却"]
+    end
+    
+    subgraph "📥 結果管理"
+        F --> N["テスト履歴管理"]
+        N --> O["結果比較機能"]
+        O --> P["パフォーマンス分析"]
     end
     
     %% Styling
     classDef sandbox fill:#e3f2fd
     classDef production fill:#e8f5e8
+    classDef management fill:#fff3e0
     
-    class A,B,C,D,E,F,G sandbox
-    class H,I,J production
+    class A,B,C,D,E,F,G,H,I,J sandbox
+    class K,L,M production
+    class N,O,P management
 ```
+
+#### 3.5.3 サンドボックステスト機能
+
+- **概要**: プロンプトの効果を事前にテストし、結果を分析する機能
+- **テスト実行**: 指定したプロンプトでチェック処理を実行
+- **結果保存**: テスト結果をDynamoDBに保存し、後から参照・比較可能
+- **ダウンロード機能**: テスト結果をJSON/CSV形式でダウンロード可能
+- **履歴管理**: テスト実行履歴の管理と比較分析
+
+#### 3.5.4 サンドボックス結果ダウンロード機能
+
+- **対象データ**: SandboxTestsテーブルのレコード指定による結果取得
+- **出力形式**: JSON, CSV, PDF形式をサポート
+- **フィルタリング**: 日付範囲、プロンプト種別、テスト結果による絞り込み
+- **バッチダウンロード**: 複数のテスト結果を一括ダウンロード
 
 
 
@@ -346,6 +417,105 @@ graph TB
   - レスポンス時間劣化
   - リソース使用量異常
 
+#### 4.4.3 フロントエンドエラー監視・通知システム
+
+- **Amplify Logger設定**
+  - フロントエンドエラーの自動収集
+  - ユーザーアクション追跡
+  - パフォーマンスメトリクス収集
+  - CloudWatchへの自動送信
+
+- **CloudWatchメトリクスフィルター**
+  - エラーレベル別フィルタリング（ERROR, WARN, FATAL）
+  - 特定パターンの検出（API呼び出し失敗、認証エラー、タイムアウト）
+  - カスタムメトリクス生成
+
+- **EventBridge連携**
+  - メトリクスフィルター条件満足時の自動イベント発火
+  - エラー詳細情報の構造化
+  - 複数チャンネルへの配信
+
+- **AWS Chatbot統合**
+  - Slackチャンネルへのリアルタイム通知
+  - エラー詳細とコンテキスト情報の送信
+  - 対応状況の追跡
+
+#### 4.4.4 エラー監視フロー
+
+```mermaid
+graph LR
+    subgraph "🖥️ Frontend"
+        A["React App"] --> B["Amplify Logger"]
+        B --> C["Error Detection"]
+        C --> D["Log Formatting"]
+    end
+    
+    subgraph "☁️ AWS CloudWatch"
+        D --> E["CloudWatch Logs"]
+        E --> F["Metrics Filter"]
+        F --> G["Custom Metrics"]
+    end
+    
+    subgraph "🔔 Event & Notification"
+        G --> H["EventBridge"]
+        H --> I["Event Rules"]
+        I --> J["AWS Chatbot"]
+        J --> K["Slack Channel"]
+    end
+    
+    subgraph "📊 Monitoring Dashboard"
+        G --> L["CloudWatch Dashboard"]
+        L --> M["Error Trends"]
+        M --> N["Performance Metrics"]
+    end
+    
+    %% Styling
+    classDef frontend fill:#e3f2fd
+    classDef aws fill:#fff3e0
+    classDef notification fill:#e8f5e8
+    classDef monitoring fill:#f3e5f5
+    
+    class A,B,C,D frontend
+    class E,F,G aws
+    class H,I,J,K notification
+    class L,M,N monitoring
+```
+
+#### 4.4.5 監視対象エラー
+
+- **認証・認可エラー**
+  - JWT トークン期限切れ
+  - 権限不足エラー
+  - Cognito認証失敗
+
+- **API通信エラー**
+  - ネットワークタイムアウト
+  - 5xx サーバーエラー
+  - Rate Limit超過
+
+- **アプリケーションエラー**
+  - JavaScript実行時エラー
+  - React コンポーネントエラー
+  - 状態管理エラー
+
+- **パフォーマンス問題**
+  - ページ読み込み時間超過
+  - APIレスポンス遅延
+  - メモリ使用量異常
+
+#### 4.4.6 アラート設定
+
+- **重要度レベル**
+  - CRITICAL: 即座に対応が必要（システム停止レベル）
+  - HIGH: 1時間以内に対応が必要
+  - MEDIUM: 1日以内に対応が必要
+  - LOW: 監視のみ
+
+- **通知チャンネル**
+  - Slack #alerts-critical（CRITICAL レベル）
+  - Slack #alerts-general（HIGH/MEDIUM レベル）
+  - Email通知（CRITICAL のみ）
+
 ### 4.5 アーキテクチャ設計
 
 - **疎結合設計**
@@ -373,10 +543,25 @@ graph TB
 
 ### 5.2 データ削除ポリシー
 
-- **手動削除**: AWSコンソールを通じて該当のデータなどは削除
+- **手動削除**: 
+  - APIを通じた単一文書削除（DynamoDB + S3 + Pinecone）
+  - APIを通じたカテゴリ別一括削除
+  - AWSコンソールを通じた直接削除（緊急時のみ）
+
 - **自動削除**: 
   - DynamoDB TTL設定による自動削除
   - S3ライフサイクルポリシーによる自動削除
+
+- **一括削除処理**:
+  - カテゴリ削除時の関連文書一括削除
+  - 親カテゴリ削除時の子カテゴリ処理（削除/移動/孤立化）
+  - 削除処理の進捗追跡とエラーハンドリング
+
+- **削除時の整合性保証**:
+  - トランザクション的な削除処理
+  - 削除失敗時のロールバック機能
+  - カテゴリ文書数カウントの自動更新
+
 - **Bedrockの履歴**: ライフサイクルを設定し、自動で削除されるように設定
 
 ### 5.3 S3ライフサイクル設定
@@ -404,7 +589,11 @@ graph TB
 - **Pinecone**: Vector Database（全環境統一）
 - **Cognito**: 認証サービス
 - **Secrets Manager**: キー管理
-- **CloudWatch**: ログ管理・監視
+- **CloudWatch**: ログ管理・監視・メトリクス
+- **EventBridge**: イベント駆動アーキテクチャ・通知ルーティング
+- **AWS Chatbot**: Slack通知・チャットOps
+- **SNS**: 通知サービス（Email、SMS）
+- **Amplify**: フロントエンドホスティング・ログ収集
 
 ### 6.1.1 Step Functionsによる非同期処理アーキテクチャ
 
@@ -518,8 +707,13 @@ graph TB
         SECRETS[AWS Secrets Manager<br/>API Keys管理]
     end
     
-    subgraph "Monitoring"
+    subgraph "Monitoring & Alerting"
         CW[CloudWatch<br/>Logs & Metrics]
+        CWF[CloudWatch<br/>Metrics Filters]
+        EB[EventBridge<br/>Event Routing]
+        CHATBOT[AWS Chatbot<br/>Slack Notifications]
+        SNS[SNS<br/>Email/SMS Alerts]
+        DASHBOARD[CloudWatch<br/>Dashboard]
     end
     
     %% Authentication Flow
@@ -569,12 +763,18 @@ graph TB
     %% Security
     FASTAPI_LAMBDA -->|API Keys| SECRETS
     
-    %% Monitoring
+    %% Monitoring & Alerting
     INVOKE_LAMBDA -->|Logs| CW
     PROXY_LAMBDA -->|Logs| CW
     FASTAPI_LAMBDA -->|Logs| CW
     APIGW -->|Access Logs| CW
     SF -->|Execution Logs| CW
+    FE -->|Frontend Logs| CW
+    CW -->|Error Detection| CWF
+    CWF -->|Events| EB
+    EB -->|Critical Alerts| CHATBOT
+    EB -->|Email Alerts| SNS
+    CW -->|Metrics| DASHBOARD
     
     %% S3 Event Triggers
     S3_DOC -->|Object Created| FASTAPI_LAMBDA
@@ -598,7 +798,7 @@ graph TB
     class DDB_DOCS,DDB_CHAT,DDB_HISTORY,DDB_PROMPTS,DDB_SESSIONS,DDB_EXECUTION database
     class BEDROCK,PINECONE ai
     class SECRETS security
-    class CW monitoring
+    class CW,CWF,EB,CHATBOT,SNS,DASHBOARD monitoring
 ```
 
 ### 6.3 RAG処理フロー図
@@ -768,7 +968,10 @@ graph LR
 
 ### 7.4 AWS Services
 
-- API Gateway, Lambda, ECR, DynamoDB, S3, Bedrock, Cognito, Secrets Manager, Step Functions, CloudWatch
+- **コア**: API Gateway, Lambda, ECR, DynamoDB, S3, Bedrock, Cognito, Secrets Manager, Step Functions
+- **監視・通知**: CloudWatch, EventBridge, AWS Chatbot, SNS
+- **フロントエンド**: Amplify（ホスティング・ログ収集）
+- **外部サービス**: Pinecone（Vector Database）
 
 ### 7.5 CI/CD
 
