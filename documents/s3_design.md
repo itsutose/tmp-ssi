@@ -68,9 +68,9 @@ notation/dictionaries/doc-456b7890-c12d-34e5-f678-901234567890_20241201T100000Z_
 | ストレージクラス | 期間 | 対象 |
 |-----------------|------|------|
 | Standard | 30日 | 新規アップロード |
-| Standard-IA | 90日 | アクセス頻度低下 |
-| Glacier Flexible Retrieval | 365日 | 長期保管 |
-| Glacier Deep Archive | 無期限 | アーカイブ（削除は明示的指示のみ） |
+| Standard | 90日 | アクセス頻度低下 |
+| Standard | 365日 | 長期保管 |
+| Standard | 無期限 | アーカイブ（削除は明示的指示のみ） |
 
 ## 2. Prompts バケット
 
