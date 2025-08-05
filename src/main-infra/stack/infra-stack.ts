@@ -3,7 +3,7 @@ import { Stack, StackProps } from "aws-cdk-lib";
 import { PROJECT_CONFIG, EnvironmentProps } from "../../shared/enviroment/common";
 import { ContainerRegistryConstruct } from "../construct/ecr";
 import { RagProcessingConstruct } from "../construct/lambda";
-import { DynamoDBConstruct } from "../construct/dynamoDB";
+
 
 export interface RagInfraStackProps extends StackProps {
   readonly environment: string;
@@ -15,7 +15,6 @@ export interface RagInfraStackProps extends StackProps {
  */
 export class RagInfraStack extends Stack {
   public readonly containerRegistry: ContainerRegistryConstruct;
-  public readonly dataStorage: DynamoDBConstruct;
   
   // Lambda関数群
   public readonly ragProcessor: RagProcessingConstruct;
@@ -28,14 +27,11 @@ export class RagInfraStack extends Stack {
       environment: props.environment,
     });
 
-    // データストレージの構築
-    this.dataStorage = new DynamoDBConstruct(this, "DataStorage");
-
-    // Lambda関数群の構築
+    // Lambda関数群の構築（DynamoDBテーブルとの連携は別途設定）
     this.ragProcessor = new RagProcessingConstruct(this, "RagProcessor", {
       environment: props.environment,
       imageRepository: this.containerRegistry.repository,
-      documentTable: this.dataStorage.table,
+      // documentTable: 別スタックのテーブルを参照する場合は後で設定
     });
 
     // 出力値の定義

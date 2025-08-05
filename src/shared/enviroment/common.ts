@@ -1,6 +1,5 @@
 import { Duration } from "aws-cdk-lib";
 import { Architecture, Runtime } from "aws-cdk-lib/aws-lambda";
-import { BillingMode, TableEncryption } from "aws-cdk-lib/aws-dynamodb";
 
 // プロジェクト設定
 export const PROJECT_CONFIG = {
@@ -35,14 +34,7 @@ export const PROJECT_CONFIG = {
         },
       },
     },
-    DYNAMODB: {
-      TABLES: {
-        DOCUMENTS: 'sony-sonpo-documents',
-        SESSIONS: 'sony-sonpo-sessions',
-      },
-      BILLING_MODE: BillingMode.PAY_PER_REQUEST,
-      ENCRYPTION: TableEncryption.AWS_MANAGED,
-    },
+
     API_GATEWAY: {
       NAME: 'sony-sonpo-api',
     },
