@@ -1,23 +1,48 @@
 import { Construct } from "constructs";
 import { Stack, StackProps } from "aws-cdk-lib";
-import { LAMBDA_FUNCTION_NAME, REPOSITORY_NAME } from "../shared/enviroment/common";
-import { EcrConstruct } from "../main-infra/construct/ecr";
-import { LambdaImageConstruct } from "../main-infra/construct/lambda";
-import { Architecture } from "aws-cdk-lib/aws-lambda";
+import { PROJECT_CONFIG } from "../shared/enviroment/common";
+import { RagInfraStack } from "../main-infra/stack/infra-stack";
 
+export interface InfraPipelineStackProps extends StackProps {
+  readonly environment?: string;
+}
+
+/**
+ * CI/CDパイプライン用のスタック
+ * 各環境のRAGインフラストラクチャをデプロイ
+ */
 export class InfraPipelineStack extends Stack {
-    constructor(scope: Construct, id: string, props: StackProps) {
+    public readonly ragInfraStack: RagInfraStack;
+
+    constructor(scope: Construct, id: string, props: InfraPipelineStackProps) {
         super(scope, id, props);
 
-        const repository = new EcrConstruct(this, "EcrConstruct");
+        const environment = props.environment ?? "dev";
+        
+        // RAGインフラストラクチャスタックをデプロイ
+        // 複数Lambda関数（RAG処理、ドキュメント解析、API Gateway）を含む統合スタック
+        this.ragInfraStack = new RagInfraStack(this, "RagInfraStack", {
+            environment,
+            env: props.env,
+            description: `RAG system infrastructure with multiple Lambda functions for ${environment} environment`,
+        });
 
-        const lambdaProps = {
-            functionName: LAMBDA_FUNCTION_NAME,
-            imageTag: "latest",
-            repository: repository.repository,
-            architecture: Architecture.ARM_64,
-        }
+        // タグ付け
+        this.addTags(environment);
+    }
 
-        const lambda = new LambdaImageConstruct(this, "LambdaImageConstruct", lambdaProps);
+    /**
+     * スタックに共通タグを追加
+     */
+    private addTags(environment: string): void {
+        const tags = {
+            Project: PROJECT_CONFIG.PROJECT_NAME,
+            Environment: environment,
+            ManagedBy: "AWS CDK",
+        };
+
+        Object.entries(tags).forEach(([key, value]) => {
+            this.ragInfraStack.tags.setTag(key, value);
+        });
     }
 }
