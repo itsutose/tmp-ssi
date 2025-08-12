@@ -41,3 +41,4 @@ jspm_packages/
 .cdk.staging/
 .parcel-cache/
 .env
+__snapshots__/
