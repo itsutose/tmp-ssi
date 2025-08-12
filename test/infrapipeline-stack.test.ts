@@ -11,7 +11,10 @@ describe("InfraPipelineStack", () => {
                 region: process.env.CDK_DEFAULT_REGION,
             },
         });
+        // テンプレートをスタックから作成
         const template = Template.fromStack(stack);
+
+        // スナップショットテスト
         expect(template.toJSON()).toMatchSnapshot();
     });
 });
