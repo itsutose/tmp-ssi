@@ -1,9 +1,21 @@
 import { Construct } from "constructs";
-import { Stack, StackProps } from "aws-cdk-lib";
+import { IStateMachine, StateMachine, DefinitionBody } from "aws-cdk-lib/aws-stepfunctions";
 
-export class StepFunctionsConstruct extends Construct {
-    constructor(scope: Construct, id: string, props: StackProps) {
-        super(scope, id, props);
-            
+export interface StepFunctionsProps {
+    stateMachineName: string;
+    definitionBody: any;
+}
+
+export class StepFunctions extends Construct {
+    public readonly stateMachine: IStateMachine;
+    constructor(scope: Construct, id: string, props: StepFunctionsProps) {
+        super(scope, id);
+
+        const stateMachine = new StateMachine(this, "StateMachine", {
+            stateMachineName: props.stateMachineName,
+            definitionBody: DefinitionBody.fromString(JSON.stringify(props.definitionBody)),
+        });
+
+        this.stateMachine = stateMachine;
     }
 }
