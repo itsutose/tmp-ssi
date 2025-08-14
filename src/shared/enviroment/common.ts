@@ -7,6 +7,9 @@ export const REPOSITORY_NAME = "sony-sonpo-rag";
 export const API_LAMBDA_FUNCTION_NAME = "sony-sonpo-rag-lambda";
 export const API_LAMBDA_HANDLER = "api.main.handler";
 
+export const STEP_FUNCTION_NAME = "sony-sonpo-rag-check-state-machine";
+export const GET_STATUS_CHECK_EXCECUTION_ARN_PREFIX = `arn:aws:states:ap-northeast-1:082041771987:execution:${STEP_FUNCTION_NAME}:`;
+
 // StepFunctionsDifinition
 export const stepFunctionDefinition = {
     "Comment": "Lambdaを使用してタスクを処理するワークフロー",
@@ -16,7 +19,7 @@ export const stepFunctionDefinition = {
             "Type": "Task",
             "Resource": "arn:aws:states:::lambda:invoke",
             "Parameters": {
-                "FunctionName": API_LAMBDA_FUNCTION_NAME, // cdk-pipelineでPayloadから代入できるように
+                "FunctionName": API_LAMBDA_FUNCTION_NAME,
                 "Payload.$": "$"
             },
             "TimeoutSeconds": 300,
@@ -31,7 +34,6 @@ export const stepFunctionDefinition = {
                     "BackoffRate": 2
                 }
             ],
-            // エラー処理
             "Catch": [
                 {
                     "ErrorEquals": [
@@ -40,8 +42,7 @@ export const stepFunctionDefinition = {
                     "Next": "HandleError"
                 }
             ],
-            // 正常処理
-            "Next": "TaskComplete"
+            "Next": "ProcessResult"
         },
         "HandleError": {
             "Type": "Pass",
@@ -51,8 +52,9 @@ export const stepFunctionDefinition = {
             },
             "End": true
         },
-        "TaskComplete": {
+        "ProcessResult": {
             "Type": "Pass",
+            "InputPath": "$.Payload",
             "End": true
         }
     }

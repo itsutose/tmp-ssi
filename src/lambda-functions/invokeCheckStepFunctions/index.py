@@ -29,16 +29,20 @@ def lambda_handler(event, context):
         # Step Functionsの実行を開始（検証済みのARNを使用）
         response = step_function_client.start_execution(
             stateMachineArn=ALLOWED_STATE_MACHINE_ARN,
-            input=event
+            input=json.dumps(event)
         )
 
+        # execution ARNからUUID（execution ID）を抽出
+        execution_arn = response['executionArn']
+        execution_uuid = execution_arn.split(':')[-1]
+        
         return {
             'statusCode': 200,
             'headers': {
                 'Content-Type': 'application/json'
             },
             'body': json.dumps({
-                'executionArn': response['executionArn'],
+                'executionUuid': execution_uuid,
                 'startDate': str(response['startDate'])
             })
         }

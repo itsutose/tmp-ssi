@@ -1,6 +1,6 @@
 import { Construct } from "constructs";
 import { Stack, StackProps } from "aws-cdk-lib";
-import { API_LAMBDA_FUNCTION_NAME, stepFunctionDefinition } from "../shared/enviroment/common";
+import { API_LAMBDA_FUNCTION_NAME, GET_STATUS_CHECK_EXCECUTION_ARN_PREFIX, STEP_FUNCTION_NAME, stepFunctionDefinition } from "../shared/enviroment/common";
 import { EcrConstruct } from "../main-infra/construct/ecr";
 import { LambdaImageConstruct, Lambda } from "../main-infra/construct/lambda";
 import { Architecture, Code } from "aws-cdk-lib/aws-lambda";
@@ -42,7 +42,7 @@ export class InfraPipelineStack extends Stack {
         });
 
         const stepFunction = new StepFunctions(this, "StepFunctionsConstruct", {
-            stateMachineName: "sony-sonpo-rag-check-state-machine",
+            stateMachineName: STEP_FUNCTION_NAME,
             definitionBody: stepFunctionDefinition,
             role: stepFunctionsRole,
         });
@@ -79,6 +79,34 @@ export class InfraPipelineStack extends Stack {
                 ALLOWED_STATE_MACHINE_ARN: stepFunction.stateMachine.stateMachineArn,
             },
             role: invokeLambdaRole,
+        });
+
+        // getStatusCheckExcecution用Lambda関数のIAMロール
+        const getStatusCheckExcecutionLambdaRole = new Role(this, "GetStatusCheckExcecutionLambdaRole", {
+            assumedBy: new ServicePrincipal("lambda.amazonaws.com"),
+            inlinePolicies: {
+                stepFunctionsInvokePolicy: new PolicyDocument({
+                    statements: [
+                        new PolicyStatement({
+                            actions: ["states:DescribeExecution"],
+                            resources: [
+                                `${GET_STATUS_CHECK_EXCECUTION_ARN_PREFIX}*`
+                            ],
+                        }),
+                    ],
+                }),
+            },
+        });
+
+        // getStatusCheckExcecution用Lambda関数
+        const getStatusCheckExcecutionLambda = new Lambda(this, "GetStatusCheckExcecutionLambda", {
+            functionName: "sony-sonpo-get-status-check-excecution",
+            code: Code.fromAsset("src/lambda-functions/getStatusCheckExcecution"),
+            handler: "index.lambda_handler",
+            role: getStatusCheckExcecutionLambdaRole,
+            environment: {
+                GET_STATUS_CHECK_EXCECUTION_ARN_PREFIX: GET_STATUS_CHECK_EXCECUTION_ARN_PREFIX,
+            },
         });
     }
 }
