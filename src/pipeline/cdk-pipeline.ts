@@ -10,6 +10,7 @@ import { Role } from "aws-cdk-lib/aws-iam";
 import { ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { PolicyDocument } from "aws-cdk-lib/aws-iam";
 import { PolicyStatement } from "aws-cdk-lib/aws-iam";
+import { ApiGatewayConstruct, ApiGatewayProps } from "../main-infra/construct/apigateway";
 
 export interface InfraPipelineStackProps extends StackProps {
   readonly environment?: string;
@@ -128,5 +129,14 @@ export class InfraPipelineStack extends Stack {
                 GET_STATUS_CHECK_EXCECUTION_ARN_PREFIX: GET_STATUS_CHECK_EXCECUTION_ARN_PREFIX,
             },
         });
+
+        // API Gateway Props
+        const apiGatewayProps: ApiGatewayProps = {
+            apiName: "sony-sonpo-api",
+            lambdaFunction: getStatusCheckExcecutionLambda.function,
+        }
+
+        const apiGateway = new ApiGatewayConstruct(this, "ApiGatewayConstruct", apiGatewayProps);
+
     }
 }
