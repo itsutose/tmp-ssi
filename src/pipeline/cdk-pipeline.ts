@@ -1,6 +1,7 @@
 import { Construct } from "constructs";
 import { Stack, StackProps } from "aws-cdk-lib";
 import { API_LAMBDA_FUNCTION_NAME, GET_STATUS_CHECK_EXCECUTION_ARN_PREFIX, STEP_FUNCTION_NAME, stepFunctionDefinition } from "../shared/enviroment/common";
+import { DataStack } from "../main-infra/stack/data-stack";
 import { EcrConstruct } from "../main-infra/construct/ecr";
 import { LambdaImageConstruct, Lambda } from "../main-infra/construct/lambda";
 import { Architecture, Code } from "aws-cdk-lib/aws-lambda";
@@ -10,9 +11,28 @@ import { ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { PolicyDocument } from "aws-cdk-lib/aws-iam";
 import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 
+export interface InfraPipelineStackProps extends StackProps {
+  readonly environment?: string;
+}
+
+/**
+ * CI/CDパイプライン用のスタック
+ * 各環境のRAGインフラストラクチャをデプロイ
+ */
 export class InfraPipelineStack extends Stack {
-    constructor(scope: Construct, id: string, props: StackProps) {
+    public readonly dataStack: DataStack;
+
+    constructor(scope: Construct, id: string, props: InfraPipelineStackProps) {
         super(scope, id, props);
+
+        const environment = props.environment ?? "dev";
+        
+        // データストレージスタックをデプロイ
+        this.dataStack = new DataStack(this, "DataStack", {
+            environment,
+            env: props.env,
+            description: `DynamoDB tables for ${environment} environment`,
+        });
 
         // ECRを用いたLambdaによるFastAPIのデプロイ
         const repository = new EcrConstruct(this, "EcrConstruct");

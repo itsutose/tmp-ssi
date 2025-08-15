@@ -1,8 +1,31 @@
-export const API_GATEWAY_NAME = "sony-sonpo-api";
+import { Duration } from "aws-cdk-lib";
+import { Architecture, Runtime } from "aws-cdk-lib/aws-lambda";
 
+// 型定義
+export interface EnvironmentProps {
+  readonly environment: string;
+  readonly projectName?: string;
+}
+
+export interface ContainerRegistryProps extends EnvironmentProps {
+  readonly repositoryName?: string;
+}
+
+export interface LambdaFunctionProps extends EnvironmentProps {
+  readonly functionName?: string;
+  readonly handler?: string;
+  readonly imageTag?: string;
+  readonly timeoutMinutes?: number;
+  readonly memorySize?: number;
+}
+
+// 特定機能用の型定義
+export interface RagProcessingProps extends LambdaFunctionProps {}
+
+// 定数定義（両方のブランチから統合）
+export const API_GATEWAY_NAME = "sony-sonpo-api";
 export const CDK_DEFAULT_ACCOUNT = process.env.CDK_DEFAULT_ACCOUNT;
 export const CDK_DEFAULT_REGION = process.env.CDK_DEFAULT_REGION;
-
 export const REPOSITORY_NAME = "sony-sonpo-rag";
 export const API_LAMBDA_FUNCTION_NAME = "sony-sonpo-rag-lambda";
 export const API_LAMBDA_HANDLER = "api.main.handler";

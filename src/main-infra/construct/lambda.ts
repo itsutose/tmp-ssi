@@ -1,12 +1,8 @@
 import { Construct } from "constructs";
-import { Function } from "aws-cdk-lib/aws-lambda";
-import { Architecture } from "aws-cdk-lib/aws-lambda";
-import { IRepository } from "aws-cdk-lib/aws-ecr";
-import { Code } from "aws-cdk-lib/aws-lambda";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
-import { Handler } from "aws-cdk-lib/aws-lambda";
-import { API_LAMBDA_HANDLER } from "../../shared/enviroment/common";
+import { Function, Code, Runtime, Handler, Architecture } from "aws-cdk-lib/aws-lambda";
 import { Duration } from "aws-cdk-lib";
+import { IRepository } from "aws-cdk-lib/aws-ecr";
+import { API_LAMBDA_HANDLER } from "../../shared/enviroment/common";
 import { IRole } from "aws-cdk-lib/aws-iam";
 import { IFunction } from "aws-cdk-lib/aws-lambda";
 
@@ -28,6 +24,9 @@ export interface LambdaProps {
   role?: IRole;
 }
 
+/**
+ * コンテナイメージベースのLambda関数用Construct
+ */
 export class LambdaImageConstruct extends Construct {
     public readonly lambda: Function;
 
@@ -35,18 +34,21 @@ export class LambdaImageConstruct extends Construct {
         super(scope, id);
 
         this.lambda = new Function(this, "advanced-rag-lambda", {
+            functionName: props.functionName,
             code: Code.fromEcrImage(props.repository, {
               cmd: [API_LAMBDA_HANDLER],
-              tagOrDigest: props.imageTag,  // 修正: tag → tagOrDigest
+              tagOrDigest: props.imageTag,
             }),
-            functionName: props.functionName,
             runtime: Runtime.FROM_IMAGE,
             handler: Handler.FROM_IMAGE,
             architecture: props.architecture,
-          });
+        });
     }
 }
 
+/**
+ * 汎用Lambda関数用Construct
+ */
 export class Lambda extends Construct {
   public readonly function: IFunction;
 
