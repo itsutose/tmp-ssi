@@ -30,7 +30,9 @@ export class DocumentTableConstruct extends Construct {
             encryption: DYNAMODB_CONFIG.DEFAULTS.ENCRYPTION,
             
             // バックアップ設定
-            pointInTimeRecovery: props.enableBackup ?? DYNAMODB_CONFIG.DEFAULTS.ENABLE_BACKUP,
+            pointInTimeRecoverySpecification: {
+                pointInTimeRecoveryEnabled: props.enableBackup ?? DYNAMODB_CONFIG.DEFAULTS.ENABLE_BACKUP
+            },
             
             // ストリーム設定（変更通知用）
             stream: props.enableStreaming ? StreamViewType.NEW_AND_OLD_IMAGES : undefined,
@@ -87,7 +89,9 @@ export class ChatSessionTableConstruct extends Construct {
             encryption: DYNAMODB_CONFIG.DEFAULTS.ENCRYPTION,
 
             // バックアップ設定
-            pointInTimeRecovery: props.enableBackup ?? DYNAMODB_CONFIG.DEFAULTS.ENABLE_BACKUP,
+            pointInTimeRecoverySpecification: {
+                pointInTimeRecoveryEnabled: props.enableBackup ?? DYNAMODB_CONFIG.DEFAULTS.ENABLE_BACKUP
+            },
 
             // ストリーム設定（変更通知用）
             stream: props.enableStreaming ? StreamViewType.NEW_AND_OLD_IMAGES : undefined,
@@ -135,7 +139,9 @@ export class ProcessingHistoryTableConstruct extends Construct {
             encryption: DYNAMODB_CONFIG.DEFAULTS.ENCRYPTION,
 
             // バックアップ設定
-            pointInTimeRecovery: props.enableBackup ?? DYNAMODB_CONFIG.DEFAULTS.ENABLE_BACKUP,
+            pointInTimeRecoverySpecification: {
+                pointInTimeRecoveryEnabled: props.enableBackup ?? DYNAMODB_CONFIG.DEFAULTS.ENABLE_BACKUP
+            },
 
             // ストリーム設定（変更通知用）
             stream: props.enableStreaming ? StreamViewType.NEW_AND_OLD_IMAGES : undefined,
@@ -186,7 +192,9 @@ export class PromptTableConstruct extends Construct {
             encryption: DYNAMODB_CONFIG.DEFAULTS.ENCRYPTION,
 
             // バックアップ設定
-            pointInTimeRecovery: props.enableBackup ?? DYNAMODB_CONFIG.DEFAULTS.ENABLE_BACKUP,
+            pointInTimeRecoverySpecification: {
+                pointInTimeRecoveryEnabled: props.enableBackup ?? DYNAMODB_CONFIG.DEFAULTS.ENABLE_BACKUP
+            },
         });
 
             // GSI1: category-isActive-index
@@ -221,7 +229,9 @@ export class UserSessionTableConstruct extends Construct {
             encryption: DYNAMODB_CONFIG.DEFAULTS.ENCRYPTION,
 
             // バックアップ設定
-            pointInTimeRecovery: props.enableBackup ?? DYNAMODB_CONFIG.DEFAULTS.ENABLE_BACKUP,
+            pointInTimeRecoverySpecification: {
+                pointInTimeRecoveryEnabled: props.enableBackup ?? DYNAMODB_CONFIG.DEFAULTS.ENABLE_BACKUP
+            },
 
             // ストリーム設定（変更通知用）
             stream: props.enableStreaming ? StreamViewType.NEW_AND_OLD_IMAGES : undefined,
@@ -262,7 +272,9 @@ export class SandboxTestTableConstruct extends Construct {
             encryption: DYNAMODB_CONFIG.DEFAULTS.ENCRYPTION,
 
             // バックアップ設定
-            pointInTimeRecovery: props.enableBackup ?? DYNAMODB_CONFIG.DEFAULTS.ENABLE_BACKUP,
+            pointInTimeRecoverySpecification: {
+                pointInTimeRecoveryEnabled: props.enableBackup ?? DYNAMODB_CONFIG.DEFAULTS.ENABLE_BACKUP
+            },
 
             // ストリーム設定（変更通知用）
             stream: props.enableStreaming ? StreamViewType.NEW_AND_OLD_IMAGES : undefined,
@@ -317,7 +329,9 @@ export class CategoryTableConstruct extends Construct {
             encryption: DYNAMODB_CONFIG.DEFAULTS.ENCRYPTION,
 
             // バックアップ設定
-            pointInTimeRecovery: props.enableBackup ?? DYNAMODB_CONFIG.DEFAULTS.ENABLE_BACKUP,
+            pointInTimeRecoverySpecification: {
+                pointInTimeRecoveryEnabled: props.enableBackup ?? DYNAMODB_CONFIG.DEFAULTS.ENABLE_BACKUP
+            },
 
             // ストリーム設定（変更通知用）
             stream: props.enableStreaming ? StreamViewType.NEW_AND_OLD_IMAGES : undefined,
@@ -371,7 +385,9 @@ export class AlertSettingTableConstruct extends Construct {
             encryption: DYNAMODB_CONFIG.DEFAULTS.ENCRYPTION,
 
             // バックアップ設定
-            pointInTimeRecovery: props.enableBackup ?? DYNAMODB_CONFIG.DEFAULTS.ENABLE_BACKUP,
+            pointInTimeRecoverySpecification: {
+                pointInTimeRecoveryEnabled: props.enableBackup ?? DYNAMODB_CONFIG.DEFAULTS.ENABLE_BACKUP
+            },
 
             // ストリーム設定（変更通知用）
             stream: props.enableStreaming ? StreamViewType.NEW_AND_OLD_IMAGES : undefined,
