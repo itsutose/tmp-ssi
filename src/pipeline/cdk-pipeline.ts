@@ -3,14 +3,15 @@ import { Stack, StackProps } from "aws-cdk-lib";
 import { API_LAMBDA_FUNCTION_NAME, GET_STATUS_CHECK_EXCECUTION_ARN_PREFIX, STEP_FUNCTION_NAME, stepFunctionDefinition } from "../shared/enviroment/common";
 import { DataStack } from "../main-infra/stack/data-stack";
 import { EcrConstruct } from "../main-infra/construct/ecr";
-import { LambdaImageConstruct, Lambda } from "../main-infra/construct/lambda";
+import { LambdaImageConstruct, Lambda, LambdaImageConstructProps } from "../main-infra/construct/lambda";
 import { Architecture, Code } from "aws-cdk-lib/aws-lambda";
 import { StepFunctions } from "../main-infra/construct/stepfunctions";
-import { Role } from "aws-cdk-lib/aws-iam";
+import { Role, IRole } from "aws-cdk-lib/aws-iam";
 import { ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { PolicyDocument } from "aws-cdk-lib/aws-iam";
 import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { ApiGatewayConstruct, ApiGatewayProps } from "../main-infra/construct/apigateway";
+
 
 export interface InfraPipelineStackProps extends StackProps {
   readonly environment?: string;
@@ -26,7 +27,7 @@ export class InfraPipelineStack extends Stack {
     constructor(scope: Construct, id: string, props: InfraPipelineStackProps) {
         super(scope, id, props);
 
-        const environment = props.environment ?? "dev";
+        const environment: string = props.environment ?? "dev";
         
         // データストレージスタックをデプロイ
         this.dataStack = new DataStack(this, "DataStack", {
@@ -36,19 +37,19 @@ export class InfraPipelineStack extends Stack {
         });
 
         // ECRを用いたLambdaによるFastAPIのデプロイ
-        const repository = new EcrConstruct(this, "EcrConstruct");
+        const repository: EcrConstruct = new EcrConstruct(this, "EcrConstruct");
 
-        const lambdaImageConstructProps = {
+        const lambdaImageConstructProps: LambdaImageConstructProps = {
             functionName: API_LAMBDA_FUNCTION_NAME,
             imageTag: "latest",
             repository: repository.repository,
             architecture: Architecture.ARM_64,
         }
 
-        const lambda = new LambdaImageConstruct(this, "LambdaImageConstruct", lambdaImageConstructProps);
+        const lambda: LambdaImageConstruct = new LambdaImageConstruct(this, "LambdaImageConstruct", lambdaImageConstructProps);
 
         // チェック用StepFunctionsのデプロイ
-        const stepFunctionsRole = new Role(this, "StepFunctionsRole", {
+        const stepFunctionsRole: IRole = new Role(this, "StepFunctionsRole", {
             assumedBy: new ServicePrincipal("states.amazonaws.com"),
             inlinePolicies: {
                 stepFunctionsPolicy: new PolicyDocument({
@@ -62,14 +63,14 @@ export class InfraPipelineStack extends Stack {
             },
         });
 
-        const stepFunction = new StepFunctions(this, "StepFunctionsConstruct", {
+        const stepFunction: StepFunctions = new StepFunctions(this, "StepFunctionsConstruct", {
             stateMachineName: STEP_FUNCTION_NAME,
             definitionBody: stepFunctionDefinition,
             role: stepFunctionsRole,
         });
 
         // invoke用Lambda関数のIAMロール
-        const invokeLambdaRole = new Role(this, "InvokeLambdaRole", {
+        const invokeLambdaRole: IRole = new Role(this, "InvokeLambdaRole", {
             assumedBy: new ServicePrincipal("lambda.amazonaws.com"),
             inlinePolicies: {
                 stepFunctionsInvokePolicy: new PolicyDocument({
@@ -103,7 +104,7 @@ export class InfraPipelineStack extends Stack {
         });
 
         // getStatusCheckExcecution用Lambda関数のIAMロール
-        const getStatusCheckExcecutionLambdaRole = new Role(this, "GetStatusCheckExcecutionLambdaRole", {
+        const getStatusCheckExcecutionLambdaRole: IRole = new Role(this, "GetStatusCheckExcecutionLambdaRole", {
             assumedBy: new ServicePrincipal("lambda.amazonaws.com"),
             inlinePolicies: {
                 stepFunctionsInvokePolicy: new PolicyDocument({
