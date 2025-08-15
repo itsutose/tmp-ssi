@@ -6,6 +6,7 @@ import { AuthorizationType } from "aws-cdk-lib/aws-apigateway";
 import { UserPool } from "aws-cdk-lib/aws-cognito";
 import { CognitoUserPoolsAuthorizer } from "aws-cdk-lib/aws-apigateway";
 
+
 export interface ApiGatewayProps {
     apiName: string;
     lambdaFunction: IFunction;
@@ -35,6 +36,7 @@ export class ApiGatewayConstruct extends Construct {
                 authorizationType: AuthorizationType.COGNITO,
             }
         );
+
 
         this.apiGateway = apiGateway;
 
