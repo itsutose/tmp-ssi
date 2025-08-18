@@ -1,10 +1,10 @@
-import { Duration, RemovalPolicy } from "aws-cdk-lib";
+import { Duration, RemovalPolicy, StackProps } from "aws-cdk-lib";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
 
-export interface S3BucketsConstructProps {
-    // 必要に応じてプロパティを追加
-}
+export interface S3BucketsConstructProps extends StackProps {
+    readonly environment: string;
+  }
 
 export class S3BucketsConstruct extends Construct {
     public readonly documentsBucket: s3.Bucket;

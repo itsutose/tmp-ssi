@@ -38,7 +38,10 @@ export class InfraPipelineStack extends Stack {
         const repository: EcrConstruct = new EcrConstruct(this, "EcrConstruct");
 
         // S3バケットの作成
-        const s3Buckets = new S3BucketsConstruct(this, "S3BucketsConstruct");
+        const s3Buckets = new S3BucketsConstruct(this, "S3BucketsConstruct", {
+            environment,
+            description: `S3 buckets for ${environment} environment`,
+        });
 
         const lambdaImageConstructProps: LambdaImageConstructProps = {
             functionName: API_LAMBDA_FUNCTION_NAME,
