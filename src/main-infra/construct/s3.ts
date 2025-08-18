@@ -1,7 +1,6 @@
 import { Duration, RemovalPolicy } from "aws-cdk-lib";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
-import { getS3BucketName } from "../../shared/enviroment/common";
 
 export interface S3BucketsConstructProps {
     // 必要に応じてプロパティを追加
@@ -16,7 +15,7 @@ export class S3BucketsConstruct extends Construct {
 
         // Documents バケット（文書原本保管）
         this.documentsBucket = new s3.Bucket(this, "DocumentsBucket", {
-            bucketName: getS3BucketName("documents"),
+            bucketName: `advanced-rag-documents-${props?.environment}-${Date.now()}`,
             encryption: s3.BucketEncryption.S3_MANAGED, // SSE-S3暗号化
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL, // プライベートバケット
             versioned: true, // バージョニング有効（誤削除防止）
@@ -26,7 +25,7 @@ export class S3BucketsConstruct extends Construct {
 
         // Temporary バケット（一時ファイル保管）
         this.temporaryBucket = new s3.Bucket(this, "TemporaryBucket", {
-            bucketName: getS3BucketName("temporary"),
+            bucketName: `advanced-rag-temporary-${props?.environment}-${Date.now()}`,
             encryption: s3.BucketEncryption.S3_MANAGED, // SSE-S3暗号化
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL, // プライベートバケット
             versioned: false, // 一時ファイルなのでバージョニング不要
