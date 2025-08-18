@@ -141,8 +141,10 @@ export class InfraPipelineStack extends Stack {
         // API Gateway Props
         const apiGatewayProps: ApiGatewayProps = {
             apiName: "sony-sonpo-api",
-            lambdaFunction: getStatusCheckExcecutionLambda.function,
+            smartragLambdaFunction: lambda.lambda,
+            getStatusLambdaFunction: getStatusCheckExcecutionLambda.function,
             userPool: userPool.userPool,
+            environment,
         }
 
         const apiGateway = new ApiGatewayConstruct(this, "ApiGatewayConstruct", apiGatewayProps);
