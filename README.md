@@ -17,7 +17,6 @@ AWS上のデプロイ環境をAWS CDKを用いてIaC（Infrastructure as Code）
 - `AWS SSM Session Manager`: セキュアなリモートアクセス
 
 ### 開発ツール
-- `プロジェクト管理`: Projen 0.77.5
 - `バンドラー`: ESBuild 0.19.8
 - `コンテナ`: Docker, Docker Compose 3.8
 
@@ -99,5 +98,3 @@ AWS_PROFILE=your-profile-name cdk deploy StackName
 ```bash
 AWS_PROFILE=your-profile-name cdk destroy StackName
 ```
-
-## プロジェクト構成
