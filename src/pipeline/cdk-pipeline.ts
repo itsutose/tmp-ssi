@@ -10,6 +10,8 @@ import { Role, IRole } from "aws-cdk-lib/aws-iam";
 import { ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { PolicyDocument } from "aws-cdk-lib/aws-iam";
 import { PolicyStatement } from "aws-cdk-lib/aws-iam";
+import { ApiGatewayConstruct, ApiGatewayProps } from "../main-infra/construct/apigateway";
+import { UserPoolConstruct } from "../main-infra/construct/cognito";
 
 
 export interface InfraPipelineStackProps extends StackProps {
@@ -129,5 +131,23 @@ export class InfraPipelineStack extends Stack {
                 GET_STATUS_CHECK_EXCECUTION_ARN_PREFIX: GET_STATUS_CHECK_EXCECUTION_ARN_PREFIX,
             },
         });
+
+        // UserPool Construct
+        const userPoolConstructProps = {
+            userPoolName: "sony-sonpo-user-pool",
+        }
+        const userPool = new UserPoolConstruct(this, "UserPoolConstruct", userPoolConstructProps);
+
+        // API Gateway Props
+        const apiGatewayProps: ApiGatewayProps = {
+            apiName: "sony-sonpo-api",
+            smartragLambdaFunction: lambda.lambda,
+            getStatusLambdaFunction: getStatusCheckExcecutionLambda.function,
+            userPool: userPool.userPool,
+            environment,
+        }
+
+        const apiGateway = new ApiGatewayConstruct(this, "ApiGatewayConstruct", apiGatewayProps);
+
     }
 }
