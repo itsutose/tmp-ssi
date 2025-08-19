@@ -1,11 +1,10 @@
 import { Construct } from "constructs";
-import { IRestApi, RestApi, Model, MockIntegration, PassthroughBehavior } from "aws-cdk-lib/aws-apigateway";
+import { IRestApi, RestApi } from "aws-cdk-lib/aws-apigateway";
 import { IFunction } from "aws-cdk-lib/aws-lambda";
 import { LambdaIntegration } from "aws-cdk-lib/aws-apigateway";
 import { AuthorizationType } from "aws-cdk-lib/aws-apigateway";
 import { UserPool } from "aws-cdk-lib/aws-cognito";
 import { CognitoUserPoolsAuthorizer } from "aws-cdk-lib/aws-apigateway";
-import { Duration } from "aws-cdk-lib";
 
 
 export interface ApiGatewayProps {
@@ -35,21 +34,11 @@ export class ApiGatewayConstruct extends Construct {
             cognitoUserPools: [props.userPool],
         });
 
-        // ヘルスチェックリソースを作成
+        // ヘルスチェック
         const healthCheckResource = apiGateway.root.addResource('health');
-        // 簡潔なモック統合
-        healthCheckResource.addMethod('GET', new MockIntegration({
-            integrationResponses: [{
-                statusCode: '200',
-                responseTemplates: {
-                    'application/json': '{"status":"healthy","service":"sony-sonpo-api"}'
-                }
-            }],
-            requestTemplates: {
-                'application/json': '{"statusCode": 200}'
-            }
-        }), {
-            methodResponses: [{ statusCode: '200' }]
+        healthCheckResource.addMethod('GET', new LambdaIntegration(props.smartragLambdaFunction), {
+            authorizer: auth,
+            authorizationType: AuthorizationType.COGNITO,
         });
 
         // テスト用エンドポイント
