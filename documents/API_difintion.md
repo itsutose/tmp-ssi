@@ -219,15 +219,16 @@ Accept: application/json
     "check_points": [
       {
         "severity": "high",
-        "location": "第3段落, 2行目",
+        "location": "違反箇所の元の文章",
+        "modified": "修正後の文章",
         "issue": "金融商品取引法第37条に抵触する可能性がある表現",
         "reference_documents": ["financial_regulations_2024.pdf"],
         "reference_content": "金融商品の販売において、リスクの説明を省略することは禁止されている"
       },
       {
         "severity": "medium", 
-        "location": "第5段落, 1行目",
-        "issue": "保険業法施行規則との整合性要確認",
+        "location": "違反箇所の元の文章",
+        "modified": "修正後の文章",
         "reference_documents": ["insurance_law_enforcement_rules.pdf"],
         "reference_content": "保険契約者への説明義務に関する規定"
       }

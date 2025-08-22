@@ -8,6 +8,8 @@ import { S3BucketsConstruct } from "../main-infra/construct/s3";
 import { StepFunctions } from "../main-infra/construct/stepfunctions";
 import { DataStack } from "../main-infra/stack/data-stack";
 import { API_LAMBDA_FUNCTION_NAME, GET_STATUS_CHECK_EXCECUTION_ARN_PREFIX, STEP_FUNCTION_NAME, stepFunctionDefinition } from "../shared/enviroment/common";
+import { ApiGatewayConstruct, ApiGatewayProps } from "../main-infra/construct/apigateway";
+import { UserPoolConstruct } from "../main-infra/construct/cognito";
 
 
 export interface InfraPipelineStackProps extends StackProps {
@@ -134,5 +136,23 @@ export class InfraPipelineStack extends Stack {
                 GET_STATUS_CHECK_EXCECUTION_ARN_PREFIX: GET_STATUS_CHECK_EXCECUTION_ARN_PREFIX,
             },
         });
+
+        // UserPool Construct
+        const userPoolConstructProps = {
+            userPoolName: "sony-sonpo-user-pool",
+        }
+        const userPool = new UserPoolConstruct(this, "UserPoolConstruct", userPoolConstructProps);
+
+        // API Gateway Props
+        const apiGatewayProps: ApiGatewayProps = {
+            apiName: "sony-sonpo-api",
+            smartragLambdaFunction: lambda.lambda,
+            getStatusLambdaFunction: getStatusCheckExcecutionLambda.function,
+            userPool: userPool.userPool,
+            environment,
+        }
+
+        const apiGateway = new ApiGatewayConstruct(this, "ApiGatewayConstruct", apiGatewayProps);
+
     }
 }
