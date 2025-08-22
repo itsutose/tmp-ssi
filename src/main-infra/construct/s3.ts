@@ -1,4 +1,5 @@
 import { Duration, RemovalPolicy, StackProps } from "aws-cdk-lib";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
 
@@ -9,23 +10,60 @@ export interface S3BucketsConstructProps extends StackProps {
 export class S3BucketsConstruct extends Construct {
     public readonly documentsBucket: s3.Bucket;
     public readonly temporaryBucket: s3.Bucket;
+    public readonly documentsBucketPolicy: s3.BucketPolicy;
 
     constructor(scope: Construct, id: string, props?: S3BucketsConstructProps) {
         super(scope, id);
 
         // Documents バケット（文書原本保管）
         this.documentsBucket = new s3.Bucket(this, "DocumentsBucket", {
-            bucketName: `advanced-rag-documents-${props?.environment}-${Date.now()}`,
+            bucketName: `advanced-rag-documents-${props?.environment}`,
             encryption: s3.BucketEncryption.S3_MANAGED, // SSE-S3暗号化
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL, // プライベートバケット
             versioned: true, // バージョニング有効（誤削除防止）
             removalPolicy: RemovalPolicy.RETAIN, // 削除保護（本番環境での誤削除防止）
-            // ライフサイクル設定（長期保管のため削除ルールは設定しない）
+            lifecycleRules: [
+                {
+                    id: 'DocumentLifecyclePolicy',
+                    enabled: true,
+                    transitions: [
+                        {
+                            // 0日後にIntelligent-Tieringへ移行（全て）
+                            storageClass: s3.StorageClass.INTELLIGENT_TIERING,
+                            transitionAfter: Duration.days(0),
+                        },
+                    ],
+                },
+            ],
         });
+
+        // バケットポリシーによる制限を追加
+        this.documentsBucketPolicy = new s3.BucketPolicy(this, "DocumentsBucketPolicy", {
+            bucket: this.documentsBucket,
+        });
+
+        // バケットポリシーでIAMロールベースアクセスのみを許可
+        this.documentsBucketPolicy.document.addStatements(
+            new iam.PolicyStatement({
+                effect: iam.Effect.DENY,
+                principals: [new iam.AnyPrincipal()],
+                actions: ["s3:*"], // すべてのアクション
+                resources: [
+                    this.documentsBucket.bucketArn, // バケットARN
+                    `${this.documentsBucket.bucketArn}/*` // バケット内のすべてのオブジェクト
+                ],
+                conditions: { // 条件を追加
+                    StringNotEquals: {
+                        "aws:PrincipalType": "AssumedRole" // IAMロールのみ除外
+                    }
+                }
+            })
+        );
+
 
         // Temporary バケット（一時ファイル保管）
         this.temporaryBucket = new s3.Bucket(this, "TemporaryBucket", {
-            bucketName: `advanced-rag-temporary-${props?.environment}-${Date.now()}`,
+            bucketName: `advanced-rag-temporary-${props?.environment}`,
             encryption: s3.BucketEncryption.S3_MANAGED, // SSE-S3暗号化
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL, // プライベートバケット
             versioned: false, // 一時ファイルなのでバージョニング不要
